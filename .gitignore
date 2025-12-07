@@ -1,0 +1,15 @@
+# 忽略依赖包 (体积巨大，不用传)
+node_modules/
+
+# 忽略构建输出
+dist/
+
+# 忽略环境变量 (保护密钥！)
+.env
+.DS_Store
+
+# 忽略包含敏感信息的服务器文件
+server.js
+
+# 如果你的密钥写在 server.js 里且还没抽离到 .env
+# 暂时不要忽略 server.js，但切记仓库要设为【私有】(Private)
