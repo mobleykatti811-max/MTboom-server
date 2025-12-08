@@ -1,0 +1,27 @@
+MTboom-server/                  <-- 项目根目录
+├── .env                        # [配置] 绝密！存放 Supabase 密钥 (不上传GitHub)
+├── .gitignore                  # [配置] 告诉 Git 忽略哪些文件 (node_modules, .env)
+├── package.json                # [配置] 项目身份证 (记录依赖包、启动命令)
+├── vite.config.js              # [配置] 前端打包工具配置
+├── server.js                   # [后端入口] 负责启动服务器、挂载 API 路由
+│
+├── public/                     # [静态资源] 存放所有"素材"
+│   ├── index.html              # [前端入口] 网页骨架 (不要放 src 里，Vite要求在根目录或这里配置)
+│   ├── assets/                 # [素材库]
+│   │   ├── images/             # -> 放圣诞树.png, 玛莎拉蒂.png, 圣诞老人.png
+│   │   ├── audio/              # -> 放背景音乐.mp3, 引擎声.wav
+│   │   └── models/             # -> (未来) 放 maserati.glb 3D模型
+│
+├── src/                        # [前端源码] 存放所有"逻辑代码" (浏览器运行)
+│   ├── main.js                 # [前端主脑] 负责初始化、状态管理
+│   ├── styles/                 # [样式]
+│   │   └── style.css           # -> 全局 CSS (黑底金字风格)
+│   └── logic/                  # [核心逻辑模块] (按功能拆分)
+│       ├── HandTracker.js      # -> MediaPipe 手势识别逻辑
+│       ├── SceneManager.js     # -> 控制 3D/2D 场景切换 (车变大变小)
+│       └── ApiClient.js        # -> 专门负责跟后端接口对话 (Login, Wish, Pay)
+│
+└── routes/                     # [后端源码] 存放所有"API 接口" (服务器运行)
+    ├── userRoutes.js           # -> 处理 /api/login (登录)
+    ├── wishRoutes.js           # -> 处理 /api/wish  (许愿、生成礼物)
+    └── orderRoutes.js          # -> 处理 /api/order (下单、支付回调)
