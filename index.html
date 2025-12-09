@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Golden AR Christmas - Turbo Edition</title>
+    
+    <style>
+        /* ======================== 全局样式 ======================== */
+        :root {
+            --gold: #FFD700;
+            --gold-dark: #B8860B;
+            --gold-glow: rgba(255, 215, 0, 0.6);
+            --bg-dark: #050505;
+            --glass: rgba(20, 20, 20, 0.85);
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: var(--bg-dark); font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; overflow: hidden; color: var(--gold); user-select: none; }
+        
+        #main-canvas { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 1; outline: none;
+        }
+
+        .view-section { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 10; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
+        .view-section.active { display: flex; opacity: 1; }
+        
+        /* 登录页样式 */
+        .login-panel { width: 85%; max-width: 320px; padding: 40px 20px; background: var(--glass); border: 1px solid var(--gold); border-radius: 15px; text-align: center; backdrop-filter: blur(10px); position: relative; box-shadow: 0 0 40px rgba(0,0,0,0.9); pointer-events: auto; }
+        .btn-gold { background: linear-gradient(135deg, var(--gold-dark), var(--gold)); border: none; color: #000; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 25px; cursor: pointer; box-shadow: 0 0 15px var(--gold-glow); margin-top: 20px; width: 80%; }
+        
+        /* 启动按钮 */
+        #start-btn { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); color:#000; background: var(--gold); border:1px solid gold; padding:15px 40px; border-radius: 30px; cursor:pointer; z-index:999; font-weight: bold; box-shadow: 0 0 20px var(--gold-glow); pointer-events: auto; }
+
+        /* [核心修改] AR UI 布局调整：右下角对齐 */
+        .ar-ui-overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            pointer-events: none; 
+            display: flex; 
+            flex-direction: column; 
+            /* 关键：靠底部，靠右侧 */
+            justify-content: flex-end; 
+            align-items: flex-end;
+            padding: 20px; 
+            z-index: 20; 
+        }
+
+        .ar-guide-box { 
+            /* 移除原来的 margin-top，改用 margin-bottom 防止贴底太紧 */
+            text-align: right; 
+            margin-bottom: 40px; /* 留出一点空间 */
+            background: rgba(0,0,0,0.6); 
+            padding: 15px 20px; 
+            border-radius: 12px; 
+            border: 1px solid rgba(255,215,0,0.3); 
+            /* 加个进入动画 */
+            animation: slideIn 0.5s ease-out;
+        }
+        @keyframes slideIn { from { transform: translateY(20px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+
+        /* 右上角摄像头挂件 */
+        /* [优化] 自适应摄像头挂件 */
+        .camera-widget {
+            position: absolute; top: 15px; right: 15px;
+            z-index: 30;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: auto;
+            
+            /* 默认样式 (优先适配手机竖屏) */
+            width: 120px; 
+            height: 160px; /* 3:4 比例 */
+        }
+
+        /* [核心] 媒体查询：当屏幕比是横屏时 (电脑/iPad横用) */
+        @media (orientation: landscape) {
+            .camera-widget {
+                width: 160px; 
+                height: 120px; /* 变成 4:3 横向比例 */
+            }
+        }
+
+        /* 摄像头画面通用样式 */
+        #ar-camera-feed {
+            width: 100%; height: 100%;
+            object-fit: cover; /* 关键：自动裁剪，填满框框不留黑边 */
+            border-radius: 12px;
+            border: 2px solid var(--gold);
+            background: #000;
+            transform: scaleX(-1);
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+        
+        /* 折叠状态也需要自适应 */
+        .camera-widget.collapsed {
+            width: 80px !important; /* 强制统一宽度 */
+            height: 30px !important; /* 强制统一高度 */
+            opacity: 0.8;
+            top: 10px; right: 10px;
+        }
+
+        #ar-camera-feed {
+            width: 100%; height: 100%; object-fit: cover; border-radius: 12px;
+            border: 2px solid var(--gold); background: #000;
+            transform: scaleX(-1); box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        .camera-toggle-btn {
+            position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%);
+            width: 24px; height: 24px; background: var(--gold); border: 2px solid #000;
+            border-radius: 50%; color: #000; font-size: 12px; line-height: 20px;
+            text-align: center; cursor: pointer; box-shadow: 0 0 10px var(--gold-glow);
+            user-select: none;
+        }
+
+        .camera-widget.collapsed { height: 30px; width: 80px; opacity: 0.8; top: 10px; right: 10px; }
+        .camera-widget.collapsed #ar-camera-feed { opacity: 0; }
+        .camera-widget.collapsed .camera-toggle-btn { bottom: 2px; }
+    </style>
+</head>
+<body>
+
+    <canvas id="main-canvas"></canvas>
+    <div id="start-btn">点击开启土豪模式</div>
+
+    <section id="view-login" class="view-section" style="display:none;"> 
+        <div class="login-panel">
+            <h2 style="margin-top:0; color:var(--gold);">VIP ACCESS</h2>
+            <button class="btn-gold">已自动登录</button>
+        </div>
+    </section>
+
+    <section id="view-ar" class="view-section active">
+        <div class="ar-ui-overlay">
+            <div class="ar-guide-box">
+                <div style="font-size:16px; color:var(--gold); font-weight:bold;">👋 手势控制</div>
+                <div style="font-size:12px; color:#fff;">
+                    ⬅️ 向左挥手 → 顺时针转<br>
+                    ➡️ 向右挥手 → 逆时针转<br>
+                    🖐️ 张开手掌 → 炸开+发光
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="camera-widget" id="camera-box">
+        <video id="ar-camera-feed" muted playsinline></video>
+        <div class="camera-toggle-btn" onclick="toggleCamera()">▼</div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+
+    <script>
+        function toggleCamera() {
+            const box = document.getElementById('camera-box');
+            const btn = box.querySelector('.camera-toggle-btn');
+            box.classList.toggle('collapsed');
+            if (box.classList.contains('collapsed')) {
+                btn.innerText = '📷'; 
+            } else {
+                btn.innerText = '▼';
+            }
+        }
+    </script>
+</body>
+</html>
