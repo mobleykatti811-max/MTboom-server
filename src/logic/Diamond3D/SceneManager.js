@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Muyu3D } from './Diamond3D.js';
+import { Diamond3D } from './Diamond3D.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -38,7 +38,6 @@ export class SceneManager {
         this._setupCamera();
         
         // ✅ 修改: 调用新的背景创建方法
-        this._createImageBackdrop();
         this._addObjects();           
         this._createSparkles();       
         this._setupStudioLights();    
@@ -117,7 +116,7 @@ export class SceneManager {
     }
 
     _addObjects() {
-        this.muyu = new Muyu3D(this.scene);
+        this.muyu = new Diamond3D(this.scene);
         this.muyu.init();
     }
 
@@ -138,27 +137,6 @@ export class SceneManager {
         this.scene.add(fillLight);
     }
 
-    // ✅ 核心修改：使用图片创建背景
-    _createImageBackdrop() {
-        // 1. 加载纹理
-        // 请确保路径与您保存图片的实际路径一致！
-        const texture = this.textureLoader.load('../assets/images/temple_bg.png', (tex) => {
-            // 图片加载完成后，设置纹理的编码，保证颜色正确
-            tex.colorSpace = THREE.SRGBColorSpace;
-        });
-
-        // 2. 创建几何体：依然使用巨大的球体包裹场景
-        const geometry = new THREE.SphereGeometry(30, 32, 32);
-
-        // 3. 创建材质：使用基础材质，并设置贴图
-        const material = new THREE.MeshBasicMaterial({
-            map: texture,     // 设置加载的图片为纹理
-            side: THREE.BackSide // 关键：渲染球体内部面
-        });
-
-        this.backdrop = new THREE.Mesh(geometry, material);
-        this.scene.add(this.backdrop);
-    }
     
     // ❌ 删除: 原来的 Shader 背景创建方法
     // _createPastelBackdrop() { ... }

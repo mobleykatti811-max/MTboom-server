@@ -23,7 +23,7 @@ export class Diamond3D {
 
         // 1. 创建几何体 (八面体)
         // radius=6, detail=0 -> 经典的菱形
-        const geometry = new THREE.OctahedronGeometry(6, 0); 
+        const geometry = new THREE.OctahedronGeometry(2, 0); 
 
         // 2. 材质 A: 实体 (物理Shader)
         const material = this._createCrystalShader();
@@ -33,7 +33,7 @@ export class Diamond3D {
 
         // 3. 材质 B: 外部线框 (像镶嵌工艺)
         // 稍微大一点，包在外面
-        const wireGeo = new THREE.OctahedronGeometry(6.1, 0); 
+        const wireGeo = new THREE.OctahedronGeometry(2.1, 0); 
         const wireMat = new THREE.MeshBasicMaterial({ 
             color: 0xFFFFFF, 
             wireframe: true,

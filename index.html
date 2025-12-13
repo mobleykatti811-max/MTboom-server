@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Golden AR Christmas - Turbo Edition</title>
+    <title>Golden AR Interaction</title>
     
     <link rel="stylesheet" href="/src/styles/style.css">
 </head>
 <body>
 
     <canvas id="main-canvas"></canvas>
-    <div id="start-btn">点击开启土豪模式</div>
+    <div id="start-btn">点击开启体验</div>
 
     <section id="view-login" class="view-section" style="display:none;"> 
         <div class="login-panel">
@@ -22,15 +22,9 @@
     <section id="view-ar" class="view-section active">
         <div class="ar-ui-overlay">
             <div id="gesture-guide" class="glass-panel">
-                <h3>🐹 功德指南</h3>
-                <div class="guide-item">
-                    <span class="tag blue">👋</span>
-                    <span class="text">上下挥手 → 敲击木鱼</span>
-                </div>
-                <div class="guide-item">
-                    <span class="tag gold">🙏</span>
-                    <span class="text">双手合十 → 功德无量</span>
-                </div>
+                <h3 id="guide-title">正在加载...</h3>
+                <div id="guide-list">
+                    </div>
             </div>
         </div>
     </section>
