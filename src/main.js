@@ -1,6 +1,6 @@
 import { apiClient } from './logic/apiClient.js';
-import { SceneManager } from './logic/SceneManager.js';
-import { HandTracker } from './logic/HandTracker.js';
+import { SceneManager } from './logic/First_tree/SceneManager.js';
+import { HandTracker } from './logic/First_tree/HandTracker.js';
 
 // ===================================
 // 1. 全局变量与配置

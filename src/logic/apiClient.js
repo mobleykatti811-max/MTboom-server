@@ -63,8 +63,8 @@ export const apiClient = {
             body: JSON.stringify({ openid, product_code: productCode, amount })
         });
     },
-
-    // 4. 保存祝福 (生成分享链接)
+ 
+    // 4. 保存祝福 (生成了分享链接)
     // 对应后端: routes/wishRoutes.js
     saveWish: (openid, content, skinType = 'tree_gold') => {
         return request('/api/wish/save', {
