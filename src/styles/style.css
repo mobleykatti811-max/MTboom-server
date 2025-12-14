@@ -14,15 +14,10 @@
 }
 
 body, html { 
-    margin: 0; 
-    padding: 0; 
-    width: 100%; 
-    height: 100%; 
+    margin: 0; padding: 0; width: 100%; height: 100%; 
     background-color: var(--bg-dark); 
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; 
-    overflow: hidden; 
-    color: rgba(46, 55, 224, 0.608); /* 保持了你提供的原有颜色 */
-    user-select: none; 
+    overflow: hidden; color: #fff; user-select: none; 
 }
 
 #main-canvas { 
@@ -30,19 +25,126 @@ body, html {
     z-index: 1; outline: none;
 }
 
-/* ======================== 视图与面板 ======================== */
+/* ======================== 落地页 & 橱窗 (黑金赛博版) ======================== */
+#landing-page {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    /* 背景升级：聚光灯 + 科技网格 */
+    background-color: #000;
+    background-image: 
+        radial-gradient(circle at 50% 30%, #2a1f00 0%, #000000 70%),
+        linear-gradient(rgba(255, 215, 0, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 215, 0, 0.05) 1px, transparent 1px);
+    background-size: 100% 100%, 40px 40px, 40px 40px;
+    z-index: 9999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+
+.landing-content {
+    text-align: center; width: 100%; max-width: 400px; padding: 20px;
+    display: flex; flex-direction: column; align-items: center;
+}
+
+/* 标题升级：金属渐变字 */
+.landing-title {
+    font-size: 28px; font-weight: 800; margin-bottom: 40px;
+    background: linear-gradient(to bottom, #fff 0%, #FFD700 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+    letter-spacing: 2px;
+}
+
+/* 橱窗升级：横向大卡片滑动 */
+#product-showcase {
+    display: flex; gap: 20px; justify-content: center;
+    width: 100%;
+    padding: 20px 10px;
+    margin-bottom: 30px;
+    overflow-x: auto; 
+    scroll-snap-type: x mandatory;
+}
+
+/* 卡片基础样式：磨砂玻璃 */
+.product-card {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 100px; height: 130px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+    opacity: 0.6;
+}
+
+/* 卡片选中状态：土豪金发光 */
+.product-card.active {
+    opacity: 1;
+    transform: translateY(-10px) scale(1.05);
+    background: linear-gradient(145deg, rgba(255, 215, 0, 0.1), rgba(0, 0, 0, 0.4));
+    border: 1px solid var(--gold);
+    box-shadow: 
+        0 0 30px rgba(255, 215, 0, 0.2),
+        inset 0 0 20px rgba(255, 215, 0, 0.1);
+}
+
+/* 图标容器 */
+.card-icon {
+    font-size: 40px;
+    margin-bottom: 15px;
+    filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));
+    transition: transform 0.3s;
+}
+
+.product-card.active .card-icon {
+    transform: scale(1.2);
+    filter: drop-shadow(0 0 15px var(--gold));
+}
+
+.product-card p { 
+    margin: 0; font-size: 14px; color: #aaa; font-weight: bold; 
+    letter-spacing: 1px;
+}
+.product-card.active p { color: #fff; }
+
+/* 按钮升级：流光按钮 */
+#start-btn { 
+    background: linear-gradient(90deg, #B8860B, #FFD700, #B8860B);
+    background-size: 200% auto;
+    border: none; color: #000;
+    padding: 18px 60px; border-radius: 50px; cursor: pointer;
+    font-size: 20px; font-weight: 900; 
+    letter-spacing: 2px;
+    box-shadow: 0 0 30px var(--gold-glow);
+    animation: shine 3s linear infinite, pulse 2s infinite;
+    margin-top: 10px;
+}
+
+@keyframes shine { to { background-position: 200% center; } }
+
+@keyframes pulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(255, 215, 0, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+}
+
+/* 提示文字 */
+#landing-page p { opacity: 0.7; animation: fadeInOut 2s infinite; }
+@keyframes fadeInOut { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+/* ======================== 视图与面板 (VIP/登录) ======================== */
 .view-section { 
     position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
     display: none; flex-direction: column; align-items: center; justify-content: center; 
-    z-index: 10; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; 
+    z-index: 10; pointer-events: none; 
 }
-.view-section.active { display: flex; opacity: 1; }
+.view-section.active { display: flex; }
 
-/* 登录页样式 */
 .login-panel { 
     width: 85%; max-width: 320px; padding: 40px 20px; 
     background: var(--glass); border: 1px solid var(--gold); border-radius: 15px; 
-    text-align: center; backdrop-filter: blur(10px); position: relative; 
+    text-align: center; backdrop-filter: blur(10px); 
     box-shadow: 0 0 40px rgba(0,0,0,0.9); pointer-events: auto; 
 }
 
@@ -50,84 +152,46 @@ body, html {
     background: linear-gradient(135deg, var(--gold-dark), var(--gold)); 
     border: none; color: #000; padding: 12px 30px; 
     font-size: 16px; font-weight: bold; border-radius: 25px; 
-    cursor: pointer; box-shadow: 0 0 15px var(--gold-glow); 
     margin-top: 20px; width: 80%; 
 }
 
-/* 启动按钮 */
-#start-btn { 
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); 
-    color: #000; background: var(--gold); border: 1px solid gold; 
-    padding: 15px 40px; border-radius: 30px; cursor: pointer; z-index: 999; 
-    font-weight: bold; box-shadow: 0 0 20px var(--gold-glow); pointer-events: auto; 
-}
-
-/* ======================== AR 界面叠加层 ======================== */
+/* ======================== AR 界面叠加层 (指南) ======================== */
 .ar-ui-overlay { 
     position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
     pointer-events: none; 
     display: flex; flex-direction: column; 
-    justify-content: flex-end; align-items: flex-end; /* 右下角对齐 */
+    justify-content: flex-end; align-items: flex-end; 
     padding: 20px; z-index: 20; 
 }
 
-.ar-guide-box { 
-    text-align: right; margin-bottom: 40px; 
-    background: rgba(0,0,0,0.6); padding: 15px 20px; 
-    border-radius: 12px; border: 1px solid rgba(255,215,0,0.3); 
-    animation: slideIn 0.5s ease-out;
-}
-
-@keyframes slideIn { 
-    from { transform: translateY(20px); opacity: 0; } 
-    to { transform: translateY(0); opacity: 1; } 
-}
-
-/* ======================== 功德指南 (Q版木鱼) 样式 ======================== */
-/* 这一部分是您之前HTML里用到了ID和Class，但CSS里缺失的，这里补全以保证效果 */
 #gesture-guide {
-    background: rgba(255, 240, 230, 0.9); /* Q版浅色背景 */
-    padding: 18px 25px;
-    border-radius: 20px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-    border: 2px solid #ffffff;
-    color: #552211; 
-    pointer-events: auto;
+    background: rgba(255, 240, 230, 0.9); padding: 18px 25px;
+    border-radius: 20px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    border: 2px solid #ffffff; color: #552211; pointer-events: auto;
+    min-width: 150px;
 }
 
-#gesture-guide h3 {
-    margin: 0 0 12px 0;
-    color: #ff6b6b; /* 标题颜色 */
-    font-size: 18px;
-}
+#gesture-guide h3 { margin: 0 0 12px 0; color: #ff6b6b; font-size: 16px; }
 
 .guide-item {
     display: flex; align-items: center; gap: 12px;
-    margin-bottom: 8px; font-size: 15px; font-weight: bold;
+    margin-bottom: 8px; font-size: 14px; font-weight: bold;
 }
 
 .tag {
     display: inline-flex; justify-content: center; align-items: center;
-    width: 32px; height: 32px; border-radius: 50%; font-size: 18px;
+    width: 28px; height: 28px; border-radius: 50%; font-size: 16px;
 }
-
-.tag.blue { background: #e0f7fa; border: 2px solid #4dd0e1; }
 .tag.gold { background: #fff8e1; border: 2px solid #ffd54f; }
 
-/* ======================== 摄像头挂件 ======================== */
+/* ======================== 摄像头挂件 (不要删！已保留) ======================== */
 .camera-widget {
     position: absolute; top: 15px; right: 15px; z-index: 30;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    pointer-events: auto;
-    width: 120px; height: 160px; /* 默认竖屏比例 */
+    transition: all 0.4s; pointer-events: auto;
+    width: 100px; height: 133px; 
 }
 
-/* 横屏适配 */
-@media (orientation: landscape) {
-    .camera-widget {
-        width: 160px; height: 120px;
-    }
-}
+@media (orientation: landscape) { .camera-widget { width: 133px; height: 100px; } }
 
 #ar-camera-feed {
     width: 100%; height: 100%; object-fit: cover; border-radius: 12px;
@@ -139,14 +203,46 @@ body, html {
     position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%);
     width: 24px; height: 24px; background: var(--gold); border: 2px solid #000;
     border-radius: 50%; color: #000; font-size: 12px; line-height: 20px;
-    text-align: center; cursor: pointer; box-shadow: 0 0 10px var(--gold-glow);
-    user-select: none;
+    text-align: center; cursor: pointer;
 }
 
-/* 折叠状态 */
 .camera-widget.collapsed { 
-    height: 30px !important; width: 80px !important; 
-    opacity: 0.8; top: 10px; right: 10px; 
+    height: 30px !important; width: 60px !important; 
+    opacity: 0.8; 
 }
 .camera-widget.collapsed #ar-camera-feed { opacity: 0; }
-.camera-widget.collapsed .camera-toggle-btn { bottom: 2px; }
+
+/* ======================== 新增：返回主页按钮样式 ======================== */
+.glass-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    padding: 10px 20px;
+    
+    /* 磨砂玻璃风格 */
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 215, 0, 0.3); /* 淡金色边框 */
+    border-radius: 30px;
+    
+    color: #fff;
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 100; /* 保证在最上层 */
+    pointer-events: auto; /* 确保能点击 */
+    
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    transition: all 0.3s ease;
+}
+
+/* 点击/悬停效果 */
+.glass-btn:active, .glass-btn:hover {
+    background: rgba(255, 215, 0, 0.2);
+    border-color: var(--gold);
+    transform: scale(0.95);
+    box-shadow: 0 0 15px var(--gold-glow);
+}

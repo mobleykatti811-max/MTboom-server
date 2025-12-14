@@ -4,13 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Golden AR Interaction</title>
-    
     <link rel="stylesheet" href="/src/styles/style.css">
 </head>
 <body>
 
     <canvas id="main-canvas"></canvas>
-    <div id="start-btn">点击开启体验</div>
+
+    <section id="landing-page">
+        <div class="landing-content">
+            <h1 class="landing-title">✨ 请选择你的魔法 ✨</h1>
+            
+            <div id="product-showcase">
+                </div>
+
+            <p style="color: #aaa; font-size: 12px; margin: 15px 0;">🔊 请打开声音体验最佳效果</p>
+
+            <button id="start-btn">开始加载</button>
+        </div>
+    </section>
 
     <section id="view-login" class="view-section" style="display:none;"> 
         <div class="login-panel">
@@ -19,18 +30,19 @@
         </div>
     </section>
 
-    <section id="view-ar" class="view-section active">
+    <section id="view-ar" class="view-section">
         <div class="ar-ui-overlay">
-            <div id="gesture-guide" class="glass-panel">
-                <h3 id="guide-title">正在加载...</h3>
-                <div id="guide-list">
-                    </div>
-            </div>
+        <div id="home-btn" class="glass-btn">
+            🏠 主页
         </div>
+        <div id="gesture-guide" class="glass-panel">
+            <h3 id="guide-title">准备就绪</h3>
+            <div id="guide-list"></div>
+        </div>
+    </div>
     </section>
 
-    <div class="camera-widget" id="camera-box">
-        <video id="ar-camera-feed" muted playsinline></video>
+    <div class="camera-widget" id="camera-box" style="display:none;"> <video id="ar-camera-feed" muted playsinline></video>
         <div class="camera-toggle-btn" onclick="toggleCamera()">▼</div>
     </div>
 
@@ -41,11 +53,7 @@
             const box = document.getElementById('camera-box');
             const btn = box.querySelector('.camera-toggle-btn');
             box.classList.toggle('collapsed');
-            if (box.classList.contains('collapsed')) {
-                btn.innerText = '📷'; 
-            } else {
-                btn.innerText = '▼';
-            }
+            btn.innerText = box.classList.contains('collapsed') ? '📷' : '▼';
         }
     </script>
 </body>

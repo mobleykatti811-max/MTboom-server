@@ -37,6 +37,7 @@ export class Muyu3D {
         this.group.rotation.x = 0.2; 
         this.group.rotation.y = -0.5;
         this.scene.add(this.group);
+
     }
 
     update(time, beatValue = 0) {

@@ -41,6 +41,13 @@ export class SceneManager {
         this._setupStudioLights();    
         this._setupPostProcessing();  
         this._handleResize();
+        
+          // 1. 创建音频对象 (注意：路径以 /assets 开头，不要写 public)
+        const sound = new Audio('/assets/audio/WoodenFish/temple.m4a');
+
+        // 2. 播放声音 (比如在敲击的时候调用)
+        sound.currentTime = 0; // 每次播放前重置进度，适合快速连续敲击
+        sound.play();
     }
 
     render(gestureData, beatValue = 0) {
@@ -124,7 +131,7 @@ export class SceneManager {
     }
 
     _setupBackground() {
-        this.bgTexture = this.textureLoader.load('../../../assets/images/temple_bg.png', (tex) => {
+        this.bgTexture = this.textureLoader.load('../../../assets/images/WoodenFish/temple_bg.png', (tex) => {
             tex.colorSpace = THREE.SRGBColorSpace;
             this._updateBackgroundAspect();
         });
