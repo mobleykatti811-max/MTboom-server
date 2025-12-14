@@ -23,20 +23,18 @@ const SCENE_MODULES = {
     'Diamond3D': {
         scene: () => import('./logic/Diamond3D/SceneManager.js'), 
         tracker: () => import('./logic/GoldenTree/HandTracker.js') // 暂时复用树的识别
+    },
+    'LuckyCat': {
+        scene: () => import('./logic/LuckyCat/SceneManager.js'),
+        tracker: () => import('./logic/LuckyCat/HandTracker.js')
+    },
+    'LuckyDog': {
+        scene: () => import('./logic/LuckyDog/SceneManager.js'),
+        tracker: () => import('./logic/LuckyDog/HandTracker.js')
     }
 };
 
 const PRODUCT_CONFIG = {
-    WoodenFish: {
-        key: 'WoodenFish',
-        title: '🐹 功德指南',
-        btnText: '开始积德',
-        iconEmoji: '🐟',
-        guides: [
-            { icon: '👋', text: '上下挥手 → 敲击' },
-            { icon: '🙏', text: '双手合十 → 爆发' }
-        ]
-    },
     GoldenTree: {
         key: 'GoldenTree',
         title: '🎄 许愿指南',
@@ -47,6 +45,26 @@ const PRODUCT_CONFIG = {
             { icon: '🖐️', text: '张开 → 变大/发光' }
         ]
     },
+    WoodenFish: {
+        key: 'WoodenFish',
+        title: '🐹 功德指南',
+        btnText: '开始积德',
+        iconEmoji: '🐟',
+        guides: [
+            { icon: '👋', text: '上下挥手 → 敲击' },
+            { icon: '🙏', text: '双手合十 → 爆发' }
+        ]
+    },
+    LuckyCat: {
+        key: 'LuckyCat',
+        title: '🐱 招财进宝',
+        btnText: '召唤财神',
+        iconEmoji: '🧧',
+        guides: [
+            { icon: '🎵', text: '音乐 → 身体律动' },
+            { icon: '👋', text: '挥手 → 疯狂招手' }
+        ]
+    },
     Diamond3D: {
         key: 'Diamond3D',
         title: '💎 精灵宝钻',
@@ -55,6 +73,16 @@ const PRODUCT_CONFIG = {
         guides: [
             { icon: '🖐️', text: '挥手 → 钻石旋转' },
             { icon: '✊', text: '张开 → 化为太阳' }
+        ]
+    },
+    LuckyDog: {
+        key: 'LuckyDog',
+        title: '🐶 旺财招福',
+        btnText: '召唤旺财',
+        iconEmoji: '🦴',
+        guides: [
+            { icon: '🎵', text: '音乐 → 身体Q弹' },
+            { icon: '👋', text: '挥手 → 疯狂摇尾' }
         ]
     }
 };
@@ -313,6 +341,72 @@ function backToHome() {
         updateStartBtnText(); 
     }
 }
+
+// ... (前面是你所有的 SceneManager, HandTracker 代码，保持不变) ...
+
+// ===================================
+// ✅ 新增：用户体验增强逻辑 (声音 & 隐私)
+// ===================================
+
+// 1. 声音控制逻辑
+let isGlobalMuted = false;
+const audioBtn = document.getElementById('audio-btn');
+
+function initAudio() {
+    if(!audioBtn) return;
+
+    audioBtn.addEventListener('click', () => {
+        isGlobalMuted = !isGlobalMuted;
+        
+        // 切换 UI 状态
+        if(isGlobalMuted) {
+            audioBtn.textContent = '🔇 静音';
+            audioBtn.classList.add('muted');
+            // 如果你有背景音乐元素，在这里暂停它
+            // if(bgMusic) bgMusic.pause();
+        } else {
+            audioBtn.textContent = '🔊 声音';
+            audioBtn.classList.remove('muted');
+            // if(bgMusic) bgMusic.play();
+        }
+
+        // 如果你有 WebAudio Context，也可以在这里控制
+        if(window.audioContext && window.audioContext.state === 'running') {
+            if(isGlobalMuted) window.audioContext.suspend();
+            else window.audioContext.resume();
+        }
+    });
+}
+
+// 2. 隐私条逻辑
+function initPrivacy() {
+    const privacyBar = document.getElementById('privacy-bar');
+    const privacyBtn = document.getElementById('privacy-ok');
+    const STORAGE_KEY = 'mtboom_privacy_agreed';
+
+    // 检查是否已经同意过
+    if (localStorage.getItem(STORAGE_KEY) === 'true') {
+        // 如果同意过，直接不显示
+        return; 
+    }
+
+    // 如果没同意过，显示隐私条
+    if(privacyBar) privacyBar.style.display = 'flex';
+
+    // 点击“知道了”
+    if(privacyBtn) {
+        privacyBtn.addEventListener('click', () => {
+            // 1. 隐藏 UI
+            privacyBar.style.display = 'none';
+            // 2. 存入本地缓存，下次不再显示
+            localStorage.setItem(STORAGE_KEY, 'true');
+        });
+    }
+}
+
+// 🚀 在原本的 initShowcase() 后面，或者文件最底部执行这两个函数
+initAudio();
+initPrivacy();
 
 // 🚀 程序入口
 initShowcase();

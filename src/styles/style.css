@@ -25,16 +25,11 @@ body, html {
     z-index: 1; outline: none;
 }
 
-/* ======================== 落地页 & 橱窗 (黑金赛博版) ======================== */
+/* ======================== 落地页 & 橱窗 (基础布局) ======================== */
 #landing-page {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    /* 背景升级：聚光灯 + 科技网格 */
+    /* 默认背景 (会被底部的适配样式覆盖) */
     background-color: #000;
-    background-image: 
-        radial-gradient(circle at 50% 30%, #2a1f00 0%, #000000 70%),
-        linear-gradient(rgba(255, 215, 0, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 215, 0, 0.05) 1px, transparent 1px);
-    background-size: 100% 100%, 40px 40px, 40px 40px;
     z-index: 9999;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
@@ -44,69 +39,42 @@ body, html {
     display: flex; flex-direction: column; align-items: center;
 }
 
-/* 标题升级：金属渐变字 */
 .landing-title {
     font-size: 28px; font-weight: 800; margin-bottom: 40px;
-    background: linear-gradient(to bottom, #fff 0%, #FFD700 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
     letter-spacing: 2px;
 }
 
-/* 橱窗升级：横向大卡片滑动 */
 #product-showcase {
     display: flex; gap: 20px; justify-content: center;
-    width: 100%;
+    width: 200%;
     padding: 20px 10px;
     margin-bottom: 30px;
-    overflow-x: auto; 
-    scroll-snap-type: x mandatory;
+    /* overflow-x: auto; 
+    scroll-snap-type: x mandatory; */
+    /* 🟢 新增下面这 1 行 (允许自动换行) */
+    flex-wrap: wrap;
 }
 
-/* 卡片基础样式：磨砂玻璃 */
 .product-card {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     min-width: 100px; height: 130px;
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 16px;
     transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
     position: relative;
-    opacity: 0.6;
+    opacity: 0.8;
 }
 
-/* 卡片选中状态：土豪金发光 */
-.product-card.active {
-    opacity: 1;
-    transform: translateY(-10px) scale(1.05);
-    background: linear-gradient(145deg, rgba(255, 215, 0, 0.1), rgba(0, 0, 0, 0.4));
-    border: 1px solid var(--gold);
-    box-shadow: 
-        0 0 30px rgba(255, 215, 0, 0.2),
-        inset 0 0 20px rgba(255, 215, 0, 0.1);
-}
-
-/* 图标容器 */
 .card-icon {
     font-size: 40px;
     margin-bottom: 15px;
-    filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));
     transition: transform 0.3s;
 }
 
-.product-card.active .card-icon {
-    transform: scale(1.2);
-    filter: drop-shadow(0 0 15px var(--gold));
-}
-
 .product-card p { 
-    margin: 0; font-size: 14px; color: #aaa; font-weight: bold; 
+    margin: 0; font-size: 14px; font-weight: bold; 
     letter-spacing: 1px;
 }
-.product-card.active p { color: #fff; }
 
 /* 按钮升级：流光按钮 */
 #start-btn { 
@@ -122,15 +90,14 @@ body, html {
 }
 
 @keyframes shine { to { background-position: 200% center; } }
-
 @keyframes pulse {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
-    70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(255, 215, 0, 0); }
-    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+    0% { transform: scale(1); }
+    70% { transform: scale(1.05); }
+    100% { transform: scale(1); }
 }
 
-/* 提示文字 */
-#landing-page p { opacity: 0.7; animation: fadeInOut 2s infinite; }
+/* 提示文字动画 */
+#landing-page p { animation: fadeInOut 2s infinite; }
 @keyframes fadeInOut { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 
 /* ======================== 视图与面板 (VIP/登录) ======================== */
@@ -155,7 +122,7 @@ body, html {
     margin-top: 20px; width: 80%; 
 }
 
-/* ======================== AR 界面叠加层 (指南) ======================== */
+/* ======================== AR 界面叠加层 ======================== */
 .ar-ui-overlay { 
     position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
     pointer-events: none; 
@@ -184,7 +151,7 @@ body, html {
 }
 .tag.gold { background: #fff8e1; border: 2px solid #ffd54f; }
 
-/* ======================== 摄像头挂件 (不要删！已保留) ======================== */
+/* ======================== 摄像头挂件 ======================== */
 .camera-widget {
     position: absolute; top: 15px; right: 15px; z-index: 30;
     transition: all 0.4s; pointer-events: auto;
@@ -212,37 +179,115 @@ body, html {
 }
 .camera-widget.collapsed #ar-camera-feed { opacity: 0; }
 
-/* ======================== 新增：返回主页按钮样式 ======================== */
+/* ======================== 按钮样式 (返回/声音) ======================== */
 .glass-btn {
     position: absolute;
     top: 20px;
     left: 20px;
     padding: 10px 20px;
-    
-    /* 磨砂玻璃风格 */
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 215, 0, 0.3); /* 淡金色边框 */
+    border: 1px solid rgba(255, 215, 0, 0.3);
     border-radius: 30px;
-    
     color: #fff;
     font-weight: bold;
     font-size: 14px;
     cursor: pointer;
-    z-index: 100; /* 保证在最上层 */
-    pointer-events: auto; /* 确保能点击 */
-    
-    display: flex;
-    align-items: center;
-    gap: 5px;
+    z-index: 100;
+    pointer-events: auto;
+    display: flex; align-items: center; gap: 5px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     transition: all 0.3s ease;
 }
-
-/* 点击/悬停效果 */
 .glass-btn:active, .glass-btn:hover {
     background: rgba(255, 215, 0, 0.2);
     border-color: var(--gold);
     transform: scale(0.95);
     box-shadow: 0 0 15px var(--gold-glow);
 }
+
+/* 声音静音状态 */
+#audio-btn.muted {
+    opacity: 0.6;
+    border-color: #666;
+    text-decoration: line-through;
+}
+
+/* ======================== 隐私提示条 ======================== */
+.privacy-toast {
+    position: fixed; bottom: 0; left: 0; width: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    border-top: 1px solid var(--gold-dark);
+    padding: 15px 20px;
+    padding-bottom: calc(15px + env(safe-area-inset-bottom));
+    display: flex; align-items: center; justify-content: space-between;
+    z-index: 10000;
+    animation: slideUp 0.5s ease-out;
+    box-shadow: 0 -5px 20px rgba(0,0,0,0.8);
+}
+
+.privacy-content { font-size: 13px; color: #ccc; line-height: 1.4; margin-right: 15px; }
+.privacy-content strong { color: var(--gold); }
+
+.privacy-btn {
+    background: var(--gold); color: #000; border: none;
+    padding: 8px 20px; border-radius: 20px;
+    font-size: 13px; font-weight: bold; white-space: nowrap;
+    cursor: pointer; transition: transform 0.2s;
+}
+.privacy-btn:active { transform: scale(0.95); }
+
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+
+/* ==========================================================================
+   🎨 浅色水彩主题适配 (Light Theme Adapter)
+   以下样式用于覆盖默认的黑金背景，使页面适应浅色水彩背景图。
+   ========================================================================== */
+
+/* 1. 设置背景图，并强制覆盖原本的黑色背景 */
+#landing-page {
+    /* 请确保图片路径正确 */
+    background-image: url('/assets/images/landing-bg.jpg'); 
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: transparent !important; 
+}
+
+/* 2. 标题颜色改深 (深金色渐变) */
+.landing-title {
+    background: linear-gradient(to bottom, #d4a017 0%, #8a6e0b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none; /* 去掉发光，增加在浅色背景上的清晰度 */
+}
+
+/* 3. 卡片改成“磨砂白”风格 */
+.product-card {
+    background: rgba(255, 255, 255, 0.4); /* 半透明白色 */
+    border: 1px solid rgba(212, 160, 23, 0.3); /* 深金边框 */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(8px);
+}
+
+/* 4. 卡片文字颜色变深 */
+.product-card p {
+    color: #555; 
+}
+
+/* 5. 选中卡片样式加强 */
+.product-card.active {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: #B8860B;
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(184, 134, 11, 0.2);
+}
+
+/* 6. 底部提示文字颜色变深 */
+#landing-page p {
+    color: #666;
+    text-shadow: none;
+    font-weight: 500;
+}
+

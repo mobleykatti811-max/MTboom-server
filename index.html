@@ -5,6 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Golden AR Interaction</title>
     <link rel="stylesheet" href="/src/styles/style.css">
+    
+    <style>
+        /* 1. 设置背景图，并强制覆盖原本的黑色背景 */
+        #landing-page {
+            /* 确保图片路径正确，如果是放在 public/assets/images/ 下 */
+            background-image: url('/assets/images/landing-bg.jpg'); 
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            /* 关键：覆盖 style.css 里的黑色背景 */
+            background-color: transparent !important; 
+        }
+
+        /* 2. 标题颜色改深 (深金色渐变)，否则在浅色图上看不见 */
+        .landing-title {
+            background: linear-gradient(to bottom, #d4a017 0%, #8a6e0b 100%) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            text-shadow: none !important; /* 去掉发光，增加清晰度 */
+        }
+
+        /* 3. 卡片改成“磨砂白”风格，适应浅色背景 */
+        .product-card {
+            background: rgba(255, 255, 255, 0.4) !important; /* 半透明白色 */
+            border: 1px solid rgba(212, 160, 23, 0.3) !important; /* 深金边框 */
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important; /* 轻微阴影 */
+        }
+        
+        /* 卡片文字颜色变深 */
+        .product-card p {
+            color: #555 !important; 
+        }
+
+        /* 4. 选中卡片样式加强 */
+        .product-card.active {
+            background: rgba(255, 255, 255, 0.8) !important;
+            border-color: #B8860B !important;
+            transform: translateY(-5px) scale(1.05);
+        }
+
+        /* 5. 提示文字颜色变深 */
+        #landing-page p {
+            color: #666 !important;
+            text-shadow: none !important;
+        }
+    </style>
 </head>
 <body>
 
@@ -32,23 +78,37 @@
 
     <section id="view-ar" class="view-section">
         <div class="ar-ui-overlay">
-        <div id="home-btn" class="glass-btn">
-            🏠 主页
+            <div id="home-btn" class="glass-btn">
+                🏠 主页
+            </div>
+            
+            <div id="audio-btn" class="glass-btn" style="top: 80px;">
+                🔊 声音
+            </div>
+
+            <div id="gesture-guide" class="glass-panel">
+                <h3 id="guide-title">准备就绪</h3>
+                <div id="guide-list"></div>
+            </div>
         </div>
-        <div id="gesture-guide" class="glass-panel">
-            <h3 id="guide-title">准备就绪</h3>
-            <div id="guide-list"></div>
-        </div>
-    </div>
     </section>
 
-    <div class="camera-widget" id="camera-box" style="display:none;"> <video id="ar-camera-feed" muted playsinline></video>
+    <div class="camera-widget" id="camera-box" style="display:none;"> 
+        <video id="ar-camera-feed" muted playsinline></video>
         <div class="camera-toggle-btn" onclick="toggleCamera()">▼</div>
+    </div>
+
+    <div id="privacy-bar" class="privacy-toast" style="display: none;">
+        <div class="privacy-content">
+            🔒 <strong>隐私保护：</strong> 本应用使用摄像头仅用于手势识别，所有数据在本地处理，绝不上传。
+        </div>
+        <button id="privacy-ok" class="privacy-btn">知道了</button>
     </div>
 
     <script type="module" src="/src/main.js"></script>
 
     <script>
+        // 摄像头折叠逻辑 (保留原样)
         function toggleCamera() {
             const box = document.getElementById('camera-box');
             const btn = box.querySelector('.camera-toggle-btn');
