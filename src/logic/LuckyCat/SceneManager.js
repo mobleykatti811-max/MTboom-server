@@ -15,6 +15,9 @@ export class SceneManager {
         
         // >>> 新增：缓存模型，用于后续动态生成 <<<
         this.loadedModel = null; 
+        
+        // ✅ [新增] 存储 UI 容器引用，以便销毁
+        this.uiContainer = null;
     }
 
     async init() {
@@ -50,9 +53,28 @@ export class SceneManager {
         window.addEventListener('resize', () => this.onWindowResize());
     }
 
+    // ✅ [新增] 销毁方法：路由切换时调用
+    dispose() {
+        // 1. 移除 UI 面板
+        if (this.uiContainer && this.uiContainer.parentNode) {
+            this.uiContainer.parentNode.removeChild(this.uiContainer);
+            this.uiContainer = null;
+            console.log("🗑️ LuckyCat UI 已移除");
+        }
+
+        // 2. 清理 Three.js 资源
+        if (this.renderer) {
+            this.renderer.dispose();
+            // 也可以在这里遍历场景清理 geometry/material，视需求而定
+        }
+    }
+
     // >>> 新增：创建控制面板 <<<
     createUI() {
-        const container = document.createElement('div');
+        // ✅ [修改] 将 DOM 元素保存到 this.uiContainer
+        this.uiContainer = document.createElement('div');
+        const container = this.uiContainer; // 保持局部变量引用，下方代码无需改动
+
         container.style.position = 'absolute';
         container.style.top = '10px';
         container.style.right = '10px';

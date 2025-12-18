@@ -5,8 +5,11 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 /**
- * SceneManager - 治愈系·桌面宠物理念
- * 风格调整：使用卡通寺庙作为背景贴图
+ * SceneManager - 修复版
+ * 1. 粒子增强
+ * 2. UI 交互修复
+ * 3. 修正手势速度传递
+ * 4. [本次修复] 支持页面切换时销毁 UI (dispose)
  */
 export class SceneManager {
     constructor(canvas) {
@@ -18,61 +21,60 @@ export class SceneManager {
         this.camera = null;
         this.renderer = null;
         this.composer = null;
+        this.bloomPass = null; 
         this.clock = new THREE.Clock();
-        // ✅ 新增: 纹理加载器
         this.textureLoader = new THREE.TextureLoader();
 
         this.muyu = null;       
-        this.backdrop = null;   
         this.particles = null;
-
         this.dirLight = null;   
         this.hemiLight = null; 
+        
+        // 状态存储
+        this.uiContainer = null;
+        this.stage = 0;
+        this.stageTimer = 0; 
     }
 
     init() {
-        console.log("🌞 正在布置阳光寺庙桌面...");
+        console.log("🎄 正在布置圣诞场景...");
         
         this._setupRenderer();
         this._setupScene();
         this._setupCamera();
         
-        // ✅ 修改: 调用新的背景创建方法
         this._addObjects();           
         this._createSparkles();       
         this._setupStudioLights();    
         this._setupPostProcessing();  
         
         this._handleResize();
+        this._updateDOM("挥挥手，唤醒晶石...");
+
+        // 创建 UI
+        this._createControlUI();
     }
 
     render(gestureData, beatValue = 0) {
+        const deltaTime = this.clock.getDelta(); 
         const time = this.clock.getElapsedTime();
 
-        let internalBeat = beatValue;
-        if (gestureData && Math.abs(gestureData.speed) > 15.0) {
-            internalBeat = 1.0; 
-        }
+        this._updateStateLogic(gestureData, deltaTime);
 
-        // 手掌开合控制背景亮度
         let targetIntensity = 0.8;
-        if (gestureData) {
-            targetIntensity = 0.8 + gestureData.openness * 0.5;
-        }
-
-        if (this.dirLight) {
-            this.dirLight.intensity += (targetIntensity - this.dirLight.intensity) * 0.1;
-        }
+        if (this.stage === 0) targetIntensity = 0.2; 
+        if (this.stage === 3) targetIntensity = 1.5; 
+        
+        if (gestureData) targetIntensity += gestureData.openness * 0.5;
+        if (this.dirLight) this.dirLight.intensity += (targetIntensity - this.dirLight.intensity) * 0.1;
 
         if (this.muyu) {
-            this.muyu.update(time, internalBeat);
-            if (gestureData && this.muyu.setInteraction) {
-                this.muyu.setInteraction(gestureData.speed);
-            }
+            // 分离速度设置和更新逻辑
+            const interactionSpeed = (this.stage === 1 && gestureData) ? gestureData.speed : 0;
+            this.muyu.setInteraction(interactionSpeed);
+            this.muyu.update(time, beatValue);
         }
 
-        // ❌ 删除: 不再需要更新 Shader 背景的时间
-        // this._updateBackdrop(time);
         this._updateSparkles(time);
 
         if (this.composer) {
@@ -82,9 +84,62 @@ export class SceneManager {
         }
     }
 
-    // ==========================================
-    // 🛠️ 核心构建区
-    // ==========================================
+    // ✅ [新增] 销毁方法：路由切换时调用
+    dispose() {
+        // 1. 移除 UI 面板
+        if (this.uiContainer && this.uiContainer.parentNode) {
+            this.uiContainer.parentNode.removeChild(this.uiContainer);
+            this.uiContainer = null;
+            console.log("🗑️ 钻石场景 UI 已移除");
+        }
+
+        // 2. 清理 Three.js 资源
+        if (this.renderer) {
+            this.renderer.dispose();
+        }
+    }
+
+    _updateStateLogic(gestureData, dt) {
+        if (!gestureData) return;
+        this.stageTimer += dt;
+        switch (this.stage) {
+            case 0: if (Math.abs(gestureData.speed) > 5.0) this._setStage(1); break;
+            case 1: if (this.stageTimer > 4.0) this._setStage(2); break;
+            case 2: if (gestureData.isHeart) this._setStage(3); break;
+            case 3: break;
+        }
+    }
+
+    _setStage(newStage) {
+        this.stage = newStage;
+        this.stageTimer = 0; 
+        if (newStage === 1) this._updateDOM("注入能量中！✨");
+        if (newStage === 2) this._updateDOM("双手比心 ❤️ 许下愿望");
+        if (newStage === 3) {
+            this._updateDOM("Merry Christmas! 🎄");
+            this._triggerExplosionEffect();
+        }
+    }
+
+    _updateDOM(text) {
+        const el = document.getElementById('instruction-text');
+        if (el) {
+            el.innerText = text;
+            el.style.animation = 'none';
+            el.offsetHeight; 
+            el.style.animation = null; 
+        }
+    }
+
+    _triggerExplosionEffect() {
+        if (this.bloomPass) {
+            this.bloomPass.strength = 2.5; 
+            this.bloomPass.radius = 1.0;
+        }
+        if (this.particles) {
+            this.particles.material.uniforms.uColor.value.setHex(0xff007f); 
+        }
+    }
 
     _setupRenderer() {
         this.renderer = new THREE.WebGLRenderer({
@@ -95,7 +150,6 @@ export class SceneManager {
         });
         this.renderer.setSize(this.width, this.height);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        
         this.renderer.useLegacyLights = false;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.0;
@@ -105,7 +159,7 @@ export class SceneManager {
 
     _setupScene() {
         this.scene = new THREE.Scene();
-        // ✅ 可选: 添加一点淡黄色的雾气，让远处背景更柔和
+        this.scene.background = this.textureLoader.load('/assets/images/Diamond3D/Diamond3D.jpg');
         this.scene.fog = new THREE.FogExp2(0xfffdf5, 0.02);
     }
 
@@ -119,42 +173,30 @@ export class SceneManager {
         this.muyu = new Diamond3D(this.scene);
         this.muyu.init();
     }
-
+    
     _setupStudioLights() {
-        this.hemiLight = new THREE.HemisphereLight(0xffffff, 0xffeeb1, 0.6); // 稍微调亮一点环境光
+        this.hemiLight = new THREE.HemisphereLight(0xffffff, 0xffeeb1, 0.6); 
         this.scene.add(this.hemiLight);
-
         this.dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
         this.dirLight.position.set(5, 10, 7);
         this.dirLight.castShadow = true;
-        this.dirLight.shadow.mapSize.width = 2048;
-        this.dirLight.shadow.mapSize.height = 2048;
-        this.dirLight.shadow.bias = -0.0001;
         this.scene.add(this.dirLight);
-
         const fillLight = new THREE.PointLight(0xffaa00, 0.3);
         fillLight.position.set(-5, 0, 5);
         this.scene.add(fillLight);
     }
 
-    
-    // ❌ 删除: 原来的 Shader 背景创建方法
-    // _createPastelBackdrop() { ... }
-
-    // ❌ 删除: 原来的 Shader 背景更新方法
-    // _updateBackdrop(time) { ... }
-
     _createSparkles() {
-        const count = 80; 
+        const count = 200; 
         const geometry = new THREE.BufferGeometry();
         const positions = [];
         const speeds = [];
         
         for(let i=0; i<count; i++) {
             positions.push(
-                (Math.random() - 0.5) * 12,
-                (Math.random() - 0.5) * 8,
-                (Math.random() - 0.5) * 5
+                (Math.random() - 0.5) * 15, 
+                (Math.random() - 0.5) * 10,
+                (Math.random() - 0.5) * 10 
             );
             speeds.push(Math.random());
         }
@@ -165,10 +207,10 @@ export class SceneManager {
         const material = new THREE.ShaderMaterial({
             uniforms: {
                 uTime: { value: 0 },
-                uColor: { value: new THREE.Color('#ffffff') }
+                uColor: { value: new THREE.Color('#FFFFFF') } 
             },
             transparent: true,
-            blending: THREE.AdditiveBlending,
+            blending: THREE.NormalBlending, 
             depthWrite: false,
             vertexShader: `
                 uniform float uTime;
@@ -176,12 +218,14 @@ export class SceneManager {
                 varying float vAlpha;
                 void main() {
                     vec3 pos = position;
-                    float yOffset = sin(uTime * aSpeed + pos.x) * 0.5;
+                    float yOffset = sin(uTime * 0.5 * aSpeed + pos.x) * 0.8;
                     pos.y += yOffset;
+                    
                     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
                     gl_Position = projectionMatrix * mvPosition;
-                    gl_PointSize = (3.0 * aSpeed + 2.0) * (15.0 / -mvPosition.z);
-                    vAlpha = 0.4 + 0.4 * sin(uTime * 3.0 + aSpeed * 10.0);
+                    
+                    gl_PointSize = (12.0 * aSpeed + 5.0) * (15.0 / -mvPosition.z);
+                    vAlpha = 0.4 + 0.3 * sin(uTime * 2.0 + aSpeed * 10.0);
                 }
             `,
             fragmentShader: `
@@ -203,20 +247,15 @@ export class SceneManager {
     _updateSparkles(time) {
         if(this.particles) {
             this.particles.material.uniforms.uTime.value = time;
+            if (this.stage === 3) this.particles.material.uniforms.uTime.value = time * 2.0;
         }
     }
 
     _setupPostProcessing() {
         this.composer = new EffectComposer(this.renderer);
         this.composer.addPass(new RenderPass(this.scene, this.camera));
-        
-        const bloomPass = new UnrealBloomPass(
-            new THREE.Vector2(this.width, this.height),
-            0.35, 
-            0.8,  
-            0.92  
-        );
-        this.composer.addPass(bloomPass);
+        this.bloomPass = new UnrealBloomPass(new THREE.Vector2(this.width, this.height), 0.35, 0.8, 0.90);
+        this.composer.addPass(this.bloomPass);
     }
 
     _handleResize() {
@@ -228,5 +267,99 @@ export class SceneManager {
             this.renderer.setSize(this.width, this.height);
             this.composer.setSize(this.width, this.height);
         });
+    }
+
+    _createControlUI() {
+        // ✅ [核心修改 1] 将 DOM 元素保存到 this.uiContainer，而不是局部变量
+        this.uiContainer = document.createElement('div');
+        const container = this.uiContainer; // 创建局部引用，保持下方代码不变
+
+        Object.assign(container.style, {
+            position: 'absolute',
+            top: '30px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: '10001', 
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            alignItems: 'center',
+            background: 'rgba(20, 20, 30, 0.6)',
+            backdropFilter: 'blur(12px)',
+            padding: '12px 20px',
+            borderRadius: '24px',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+            fontFamily: 'sans-serif',
+            fontSize: '13px',
+            color: 'white',
+            userSelect: 'none',
+            pointerEvents: 'auto' 
+        });
+
+        const createRow = (options, name, callback) => {
+            const rowDiv = document.createElement('div');
+            Object.assign(rowDiv.style, {
+                display: 'flex',
+                gap: '8px',
+                background: 'rgba(0,0,0,0.3)',
+                borderRadius: '16px',
+                padding: '4px',
+                pointerEvents: 'auto'
+            });
+
+            options.forEach(opt => {
+                const item = document.createElement('div');
+                Object.assign(item.style, {
+                    cursor: 'pointer',
+                    padding: '6px 16px',
+                    borderRadius: '12px',
+                    transition: 'all 0.2s ease',
+                    background: opt.checked ? 'rgba(255,255,255,0.9)' : 'transparent',
+                    color: opt.checked ? '#000' : 'rgba(255,255,255,0.6)',
+                    fontWeight: opt.checked ? 'bold' : 'normal',
+                    textAlign: 'center'
+                });
+                item.innerText = opt.label;
+
+                item.onclick = (e) => {
+                    e.stopPropagation(); 
+                    callback(opt.value);
+                    
+                    Array.from(rowDiv.children).forEach(child => {
+                        if (child === item) {
+                            child.style.background = 'rgba(255,255,255,0.9)';
+                            child.style.color = '#000';
+                            child.style.fontWeight = 'bold';
+                        } else {
+                            child.style.background = 'transparent';
+                            child.style.color = 'rgba(255,255,255,0.6)';
+                            child.style.fontWeight = 'normal';
+                        }
+                    });
+                };
+                rowDiv.appendChild(item);
+            });
+            return rowDiv;
+        };
+
+        const colorRow = createRow([
+            { label: "流光金", value: "gold", checked: true },
+            { label: "极寒冰", value: "ice", checked: false },
+            { label: "玫瑰恋", value: "rose", checked: false }
+        ], "theme", (v) => this.muyu.setTheme(v));
+
+        const matRow = createRow([
+            { label: "经典 (默认)", value: "clear", checked: true },
+            { label: "磨砂", value: "frosted", checked: false },
+            { label: "透明", value: "glass", checked: false }
+        ], "mode", (v) => this.muyu.setMaterialMode(v));
+
+        container.appendChild(colorRow);
+        container.appendChild(matRow);
+
+        const arView = document.getElementById('view-ar');
+        if (arView) arView.appendChild(container);
+        else document.body.appendChild(container);
     }
 }

@@ -82,13 +82,37 @@ export class LuckyCat3D {
     }
 
     // >>> 新增：允许外部修改基础大小 <<<
-    setScale(newScale) {
-        this.baseScaleValue = newScale;
-        // 立即应用一次，避免视觉延迟
-        if(this.model) {
-            this.model.scale.set(newScale, newScale, newScale);
+    // ... (在 update 方法之后添加) ...
+
+    /**
+     * 动态设置大小
+     * @param {number} size 
+     */
+    setScale(size) {
+        this.baseScaleValue = size;
+        if (this.model) {
+            // 直接设置缩放，update 里的动画会基于 baseScaleValue 继续运行
+            this.model.scale.set(size, size, size);
         }
     }
+
+    /**
+     * 销毁这只猫 (从场景移除，清理光波)
+     */
+    dispose() {
+        // 移除猫模型
+        if (this.model) {
+            this.scene.remove(this.model);
+        }
+        // 移除光波
+        if (this.lightWaveMesh) {
+            this.scene.remove(this.lightWaveMesh);
+            // 释放显存
+            if (this.lightWaveMesh.geometry) this.lightWaveMesh.geometry.dispose();
+            if (this.lightWaveMesh.material) this.lightWaveMesh.material.dispose();
+        }
+    }
+
 
     update(data, time, beat) {
         if (!this.model) return;

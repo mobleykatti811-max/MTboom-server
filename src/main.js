@@ -22,7 +22,7 @@ const SCENE_MODULES = {
     },
     'Diamond3D': {
         scene: () => import('./logic/Diamond3D/SceneManager.js'), 
-        tracker: () => import('./logic/GoldenTree/HandTracker.js') // 暂时复用树的识别
+        tracker: () => import('./logic/GoldenTree/HandTracker.js') // 暂时复用树的识别on
     },
     'LuckyCat': {
         scene: () => import('./logic/LuckyCat/SceneManager.js'),
@@ -31,6 +31,10 @@ const SCENE_MODULES = {
     'LuckyDog': {
         scene: () => import('./logic/LuckyDog/SceneManager.js'),
         tracker: () => import('./logic/LuckyDog/HandTracker.js')
+    },
+    'CrazyCrit': { // ✅ 键名改为 CrazyCrit
+        scene: () => import('./logic/CrazyCrit/SceneManager.js'), // ✅ 路径指向新目录
+        tracker: () => import('./logic/CrazyCrit/HandTracker.js')
     }
 };
 
@@ -71,8 +75,8 @@ const PRODUCT_CONFIG = {
         btnText: '唤醒宝石',
         iconEmoji: '💎',
         guides: [
-            { icon: '🖐️', text: '挥手 → 钻石旋转' },
-            { icon: '✊', text: '张开 → 化为太阳' }
+            { icon: '👋', text: '挥手 → 唤醒晶石' },
+            { icon: '❤️', text: '比心 → 许愿爆发' }
         ]
     },
     LuckyDog: {
@@ -83,6 +87,16 @@ const PRODUCT_CONFIG = {
         guides: [
             { icon: '🎵', text: '音乐 → 身体Q弹' },
             { icon: '👋', text: '挥手 → 疯狂摇尾' }
+        ]
+    },
+    CrazyCrit: { // ✅ 键名改为 CrazyCrit
+        key: 'CrazyCrit', // ✅ 对应上面的 Key
+        title: '🔥 鬼畜至尊版', 
+        btnText: '开始攻沙',
+        iconEmoji: '🗡️',
+        guides: [
+            { icon: '🤏', text: '待机 → 战力探测' },
+            { icon: '🖐️', text: '挥手 → 刀刀暴击' }
         ]
     }
 };
@@ -191,6 +205,7 @@ async function onUserStart() {
         document.getElementById('view-ar').classList.add('active');
         document.getElementById('camera-box').style.display = 'block'; // 显示摄像头框
 
+        
         // 更新右上角的指南
         updateGuideUI(config);
 
@@ -316,9 +331,12 @@ function backToHome() {
         handTracker = null; 
     }
     
-    // ✅ 4. 清理 SceneManager (释放 WebGL 上下文)
+    // ✅ 4. 清理 SceneManager (释放 WebGL 上下文 & 删除 UI)
     if (sceneManager) {
-        // 如果 SceneManager 有 dispose()，记得调用 sceneManager.dispose()
+        // [新增] 必须显式调用 dispose，否则 UI 删不掉
+        if (typeof sceneManager.dispose === 'function') {
+            sceneManager.dispose(); 
+        }
         sceneManager = null; 
     }
 
