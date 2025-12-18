@@ -1,21 +1,16 @@
 // src/logic/apiClient.js
 
 // 🌍 核心配置
-// 开发阶段：直接连你的香港服务器 IP
-// 上线阶段：如果前端也部署在同一个服务器，可以改成 '' (相对路径)
-const API_BASE_URL = 'http://43.154.251.175:3000'; 
+// ⚠️ 注意：这里要换成你 Node.js 服务器的地址
+// 如果是本地测试用 localhost:3000，如果是上线用服务器IP:3000
+const API_BASE_URL = 'http://localhost:3000'; 
 
 /**
- * 通用请求处理函数 (处理 JSON 和 错误)
+ * 通用请求处理函数 (保持不变)
  */
 async function request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
-    
-    // 默认通过 JSON 通信
-    const defaultHeaders = {
-        'Content-Type': 'application/json',
-    };
-
+    const defaultHeaders = { 'Content-Type': 'application/json' };
     const config = {
         ...options,
         headers: { ...defaultHeaders, ...options.headers },
@@ -32,50 +27,42 @@ async function request(endpoint, options = {}) {
         return data;
     } catch (error) {
         console.error(`❌ API 错误 [${endpoint}]:`, error);
-        throw error; // 继续抛出，让 UI 层处理报错
+        throw error;
     }
 }
 
 // ==========================================
-// 📦 业务接口导出
+// 📦 业务接口导出 (已更新为最新 MVP 方案)
 // ==========================================
 
 export const apiClient = {
-    // 1. 初始化配置 (获取价格、文案)
-    getConfig: () => {
-        return request('/api/config');
-    },
-
-    // 2. 静默登录 (获取用户身份 + 权益)
-    // 对应后端: routes/userRoutes.js
-    login: (openid, nickname, avatar) => {
-        return request('/api/login', {
+    // 1. 预下单 (生成内部单号 -> 前端跳转面包多)
+    // 对应后端: /api/create-intent
+    createIntent: (productKey, phone, giftData = {}) => {
+        return request('/api/create-intent', {
             method: 'POST',
-            body: JSON.stringify({ openid, nickname, avatar })
+            body: JSON.stringify({ 
+                product_key: productKey, 
+                phone: phone, 
+                gift_data: giftData 
+            })
         });
     },
 
-    // 3. 创建订单 (模拟支付/解锁玛莎拉蒂)
-    // 对应后端: routes/orderRoutes.js
-    createOrder: (openid, productCode = 'maserati_unlock', amount = 9.9) => {
-        return request('/api/order/create', {
+    // 2. 查单/登录 (法宝库查询)
+    // 对应后端: /api/check-unlock
+    checkUnlock: (phone, orderSuffix) => {
+        return request('/api/check-unlock', {
             method: 'POST',
-            body: JSON.stringify({ openid, product_code: productCode, amount })
-        });
-    },
- 
-    // 4. 保存祝福 (生成了分享链接)
-    // 对应后端: routes/wishRoutes.js
-    saveWish: (openid, content, skinType = 'tree_gold') => {
-        return request('/api/wish/save', {
-            method: 'POST',
-            body: JSON.stringify({ openid, content, skin_type: skinType })
+            body: JSON.stringify({ 
+                phone: phone, 
+                order_suffix: orderSuffix 
+            })
         });
     },
 
-    // 5. 获取祝福详情 (被分享人打开时调用)
-    // 对应后端: routes/wishRoutes.js
-    getWish: (uuid) => {
-        return request(`/api/wish/${uuid}`);
-    }
+    // --- 保留旧接口以防你的旧代码报错 (可选，不用的话可以删掉) ---
+    getConfig: () => request('/api/config'),
+    login: (openid) => console.log('Legacy login called'), 
+    // --------------------------------------------------------
 };

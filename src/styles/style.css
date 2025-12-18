@@ -158,7 +158,56 @@ body, html {
     width: 100px; height: 133px; 
 }
 
-@media (orientation: landscape) { .camera-widget { width: 133px; height: 100px; } }
+/* =========================================
+   💻 电脑/宽屏适配补丁 (最终修正版)
+   ========================================= */
+@media screen and (min-width: 768px) {
+    /* 1. 外层面板：强制撑宽 */
+    #view-treasure .treasure-box-panel {
+        /* 宽度解锁：设为屏幕宽度的 70%，最大 1000px */
+        width: 70% !important;
+        max-width: 1000px !important; 
+        
+        /* 高度适中，居中显示 */
+        height: 75vh !important;
+        margin: auto !important; 
+    }
+
+    /* 2. 网格布局：锁定 3 列 */
+    #view-treasure .treasure-grid {
+        display: grid !important;
+        /* 核心：强制一行 3 个，1fr 会让它们自动拉伸填满宽度 */
+        grid-template-columns: repeat(3, 1fr) !important;
+        
+        /* 间距加大，填满大盒子 */
+        gap: 40px !important; 
+        padding: 40px !important;
+        
+        /* 禁止横向滚动 */
+        overflow-x: hidden !important; 
+    }
+
+    /* 3. 图标和文字放大，显得大气 */
+    #view-treasure .t-icon { 
+        font-size: 60px !important; 
+        margin-bottom: 15px !important;
+    }
+    #view-treasure .t-name {
+        font-size: 16px !important;
+    }
+
+    /* 🟢 摄像头小窗：移除强制宽高，改为限制最大宽度 */
+    .camera-widget {
+        /* 设置一个基准宽度，比如 240px，高度由 JS 自动算 */
+        width: 240px !important; 
+        height: auto !important; /* 让高度自适应 */
+        
+        top: 20px !important;
+        right: 20px !important;
+        /* 保持原有的过渡效果 */
+        transition: all 0.3s ease;
+    }
+}
 
 #ar-camera-feed {
     width: 100%; height: 100%; object-fit: cover; border-radius: 12px;
@@ -179,11 +228,11 @@ body, html {
 }
 .camera-widget.collapsed #ar-camera-feed { opacity: 0; }
 
-/* ======================== 按钮样式 (返回/声音) ======================== */
+/* ======================== 按钮样式 (返回/声音/法宝) ======================== */
 .glass-btn {
     position: absolute;
     top: 20px;
-    left: 20px;
+    left: 20px; /* 默认左上角 */
     padding: 10px 20px;
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(8px);
@@ -204,6 +253,16 @@ body, html {
     border-color: var(--gold);
     transform: scale(0.95);
     box-shadow: 0 0 15px var(--gold-glow);
+}
+
+/* ✅ 新增：首页右上角“我的法宝”按钮专用样式 */
+#my-treasure-btn {
+    left: auto;   /* 覆盖默认的 left */
+    right: 20px;  /* 改为靠右 */
+    top: 25px;    /* 稍微调整顶部距离 */
+    background: rgba(255, 255, 255, 0.6); /* 在浅色背景上稍微加深不透明度 */
+    border-color: rgba(184, 134, 11, 0.5);
+    color: #8a6e0b;
 }
 
 /* 声音静音状态 */
@@ -352,3 +411,360 @@ body, html {
     cursor: pointer;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
+
+/* 模态框遮罩 */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7); z-index: 2000;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(5px);
+}
+.modal-box {
+    width: 80%; max-width: 320px; padding: 25px;
+    border: 1px solid var(--gold);
+    text-align: center;
+}
+.glass-input {
+    width: 100%; padding: 12px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px; color: #fff; outline: none;
+    font-size: 16px;
+}
+.glass-input:focus { border-color: var(--gold); }
+
+/* ======================== 法宝展示页 (背包) ======================== */
+.treasure-box-panel {
+    width: 90%;
+    /* 📱 手机端默认逻辑 */
+    max-width: 400px; 
+    height: 70vh; 
+    
+    background: rgba(10, 10, 10, 0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 50px rgba(0,0,0,0.8);
+    position: relative;
+    animation: slideUpFade 0.4s ease-out;
+    
+    /* ⚡️ 核心修复：自动居中 */
+    margin: auto; 
+
+    /* ✅【新增】这行代码必须加，否则按钮无法点击！ */
+    pointer-events: auto;
+}
+
+@keyframes slideUpFade {
+    from { transform: translateY(50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.treasure-header {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 15px; margin-bottom: 15px;
+    flex-shrink: 0; /* 防止标题被挤压 */
+}
+.treasure-header h2 { margin: 0; color: var(--gold); font-size: 20px; }
+
+.close-btn {
+    font-size: 24px; color: #aaa; cursor: pointer; padding: 5px;
+}
+.close-btn:hover { color: #fff; }
+
+/* 🟢【关键优化】网格改为 4 列，更加紧凑 */
+.treasure-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 手机端一行4个 */
+    gap: 8px; /* 间距调小 */
+    padding: 5px;
+    overflow-y: auto;
+    align-content: start;
+}
+
+/* 🟢【关键优化】图标改小 */
+.t-icon { font-size: 24px; margin-bottom: 2px; }
+.t-name { font-size: 10px; transform: scale(0.9); white-space: nowrap; }
+
+/* =========================================
+   💻 电脑/宽屏适配补丁 (修复背包过窄问题)
+   ========================================= */
+@media (min-width: 768px) {
+    .treasure-box-panel {
+        /* 宽度加倍，从 400px 改为 800px */
+        max-width: 800px !important; 
+        
+        /* 稍微增加高度，看起来更像一个大箱子 */
+        height: 80vh !important; 
+    }
+
+    .treasure-grid {
+        /* 强制一行 3 个，自动拉伸 */
+        grid-template-columns: repeat(3, 1fr) !important;
+        
+        /* 🚫 彻底杀掉横向滚动条 */
+        overflow-x: hidden !important; 
+        
+        /* 增加格子间距，利用宽屏空间 */
+        gap: 30px !important; 
+        padding: 30px !important; 
+    }
+
+    /* 让图标在电脑上显示大一点，更气派 */
+    .t-icon {
+        font-size: 50px !important;
+        margin-bottom: 10px !important;
+    }
+    
+    /* 文字也稍微大一点 */
+    .t-name {
+        font-size: 14px !important;
+    }
+}
+
+/* 单个法宝格子 */
+.treasure-item {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,215,0,0.1);
+    border-radius: 10px;
+    aspect-ratio: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+/* 选中/解锁状态 */
+.treasure-item.unlocked {
+    background: rgba(184, 134, 11, 0.2);
+    border-color: var(--gold);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+}
+
+.t-icon { font-size: 32px; margin-bottom: 5px; }
+.t-name { font-size: 10px; color: #ccc; text-align: center; }
+
+/* 空状态 */
+.empty-state {
+    grid-column: 1 / -1; /* 跨越所有列 */
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; color: #666;
+}
+
+/* 修改或添加到 style.css */
+
+/* 背包面板 - 确保居中且背景模糊 */
+/* ======================== 法宝展示页 (背包) ======================== */
+.treasure-box-panel {
+    width: 90%;
+    max-width: 400px;
+    height: 65vh; /* 稍微调小一点高度，适配小屏幕 */
+    
+    background: rgba(10, 10, 10, 0.9); /*稍微加深一点背景，提升对比度*/
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 20px;
+    padding: 20px;
+    
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 50px rgba(0,0,0,0.8);
+    position: relative;
+    margin: auto;
+    
+    /* 🟢【关键修复】开启鼠标事件，让里面的按钮可以被点击 */
+    pointer-events: auto; 
+    animation: slideUpFade 0.4s ease-out;
+}
+
+/* 网格布局 - 保持三列 */
+.treasure-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 10px;
+    overflow-y: auto;
+}
+
+/* 单个法宝格子 - 默认状态 */
+.treasure-item {
+    aspect-ratio: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+/* 已解锁状态 - 金色流光 */
+.treasure-item.unlocked {
+    background: linear-gradient(145deg, rgba(255, 215, 0, 0.1), rgba(0, 0, 0, 0.2));
+    border: 1px solid var(--gold);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.15);
+    animation: itemPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.treasure-item.unlocked:active {
+    transform: scale(0.95);
+    background: rgba(255, 215, 0, 0.3);
+}
+
+.t-icon {
+    font-size: 36px;
+    margin-bottom: 5px;
+    filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5));
+}
+
+.t-name {
+    font-size: 12px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.t-status {
+    font-size: 10px;
+    color: var(--gold);
+    margin-top: 2px;
+    opacity: 0.8;
+}
+
+/* 进场动画 */
+@keyframes itemPop {
+    from { opacity: 0; transform: scale(0.5); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* style.css */
+.preview-box {
+    width: 100%;
+    height: 180px;
+    background: linear-gradient(135deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.3) 100%);
+    border-radius: 16px;
+    margin: 10px 0 20px 0;
+    display: none; /* 默认隐藏，由 JS 开启 */
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
+}
+
+.preview-placeholder {
+    font-size: 14px;
+    color: var(--gold);
+    opacity: 0.6;
+}
+
+/* =========================================
+   🟢 新增：角标与锁状态样式 (Badges & Locks)
+   ========================================= */
+
+/* B. 角标样式 (Badge) */
+.card-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: linear-gradient(135deg, #ff5e5e, #ff0000); /* 醒目的红色渐变 */
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 10px 0 10px 0; /* 叶子形状 */
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+    z-index: 5;
+    border: 1px solid rgba(255,255,255,0.8);
+    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+    animation: badgePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* =========================================
+   🎨 进阶美化：高级感角标 (Badges)
+   ========================================= */
+
+.card-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    /* 默认字体样式 */
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    /* 改回圆角，更温润 */
+    border-radius: 8px;
+    /* 增加玻璃质感边框 */
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    z-index: 5;
+    /* 字体阴影，防糊 */
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    letter-spacing: 1px;
+    animation: floatBadge 3s ease-in-out infinite;
+}
+
+/* 🎁 利润款 (送礼)：流光金 */
+.card-badge.premium {
+    background: linear-gradient(135deg, #FFD700 0%, #FDB931 100%);
+    color: #5a4a00; /* 深金色文字 */
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+}
+
+/* 🔥 流量款 (热门)：珊瑚红 (比纯红更温柔) */
+.card-badge.hot {
+    background: linear-gradient(135deg, #ff9a9e 0%, #ff6a88 100%);
+    box-shadow: 0 4px 15px rgba(255, 106, 136, 0.3);
+}
+
+/* ⚡ 试玩款 (付费)：极光紫 */
+.card-badge.trial {
+    background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(161, 140, 209, 0.3);
+}
+
+/* 悬浮动画 */
+@keyframes floatBadge {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+/* 🔒 锁状态优化：加深灰度，加一个锁图标 */
+.product-card.locked {
+    filter: grayscale(1) opacity(0.7); /* 彻底变灰 */
+    transition: all 0.3s;
+}
+/* 鼠标放上去时，稍微恢复一点色彩，诱导点击 */
+.product-card.locked:hover {
+    filter: grayscale(0.5) opacity(1);
+}
+/* C. 锁状态样式 (Lock Status) */
+.product-card.locked {
+    filter: grayscale(0.9); /* 变灰，暗示未解锁 */
+    opacity: 0.8;
+}
+
+.product-card.locked::after {
+    content: "🔒"; /* 伪元素直接显示锁图标 */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    opacity: 0.8;
+    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
+    z-index: 4;
+}
+
+/* 进场动画 */
+@keyframes badgePop {
+    from { transform: scale(0); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+

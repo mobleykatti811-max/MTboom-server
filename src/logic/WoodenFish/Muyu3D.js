@@ -1,234 +1,231 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-/**
- * MuyuBun - 仿真布丁小木鱼 (Pro Max版)
- * 1. 旋转灵敏度提升 8 倍。
- * 2. 修复敲击动画，确保木槌能“砸”到木鱼表面。
- * 3. 支持“双手合十”自动连击接口。
- */
 export class Muyu3D {
-    constructor(scene) {
+    constructor(scene, onHit) {
         this.scene = scene;
+        this.onHit = onHit; 
         this.group = new THREE.Group();
-        this.muyuMesh = null;
-        this.hammerMesh = null;
+        this.muyuMesh = null; 
+        
+        // 棒槌相关
         this.hammerPivot = null;
-
-        // 动画物理状态
-        this.hammerAngle = -0.4; 
-        this.targetHammerAngle = -0.4;
+        this.baseAngle = -0.2; // 初始角度（稍微抬起）
+        this.hitAngle = 0.6;   // 敲击到底的角度
+        this.hammerAngle = this.baseAngle; 
+        this.targetHammerAngle = this.baseAngle;
+        
+        // 木鱼弹性动画变量
         this.scaleSpring = { val: 1.0, vel: 0 }; 
+        
+        // 状态锁
         this.isHit = false;
+        this.lastHitTime = 0;
 
-        this.stars = [];
+        // 浮动文字数组，用于在 update 中统一管理动画
+        this.floatingTexts = [];
     }
 
     init() {
-        console.log("🍮 MuyuBun: 正在制作特大号布丁木鱼...");
-
-        this._createRealisticMuyu();
+        this._loadWoodenFishModel();
         this._createRealisticHammer();
-        this._createStarParticles(); 
-
-        // 保持之前的大尺寸
+        
+        // 整体位置调整
         this.group.scale.set(0.7, 0.7, 0.7);
         this.group.position.set(0, -0.5, 0);
-        
-        this.group.rotation.x = 0.2; 
-        this.group.rotation.y = -0.5;
+        this.group.rotation.x = 0.1; 
+        this.group.rotation.y = -0.4; // 稍微侧一点，让棒槌不挡住木鱼
         this.scene.add(this.group);
+    }
 
+    _loadWoodenFishModel() {
+        const loader = new GLTFLoader();
+        // 确保路径正确
+        loader.load('/src/logic/WoodenFish/WoodenFish3D.glb', (gltf) => {
+            this.muyuMesh = gltf.scene;
+            this.muyuMesh.traverse(child => { 
+                if (child.isMesh) {
+                    child.material.transparent = false;
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                } 
+            });
+            // 初始缩放
+            this.muyuMesh.scale.set(10, 10, 10); 
+            this.group.add(this.muyuMesh);
+        });
+    }
+
+    _createRealisticHammer() {
+        this.hammerPivot = new THREE.Group();
+        // 调整轴心位置：放在木鱼左上方
+        this.hammerPivot.position.set(-3.5, 3.5, 0); 
+        this.group.add(this.hammerPivot);
+        
+        // 棒身
+        const handleGeo = new THREE.CylinderGeometry(0.15, 0.2, 4.5, 32); // 增加面数更圆滑
+        const handleMat = new THREE.MeshStandardMaterial({ color: 0xdcb35c, roughness: 0.3 });
+        const handle = new THREE.Mesh(handleGeo, handleMat);
+        // 修改：棒身向下延伸
+        handle.position.y = -1.5; 
+        
+        // 棒头
+        const headGeo = new THREE.SphereGeometry(0.8, 32, 32); //稍微变大一点
+        const headMat = new THREE.MeshStandardMaterial({ color: 0x8b4513, roughness: 0.2, metalness: 0.1 });
+        const head = new THREE.Mesh(headGeo, headMat);
+        // 修改：棒头在棒身的最底端
+        head.position.set(0, -3.8, 0); 
+
+        // 组合
+        const hammer = new THREE.Group();
+        hammer.add(handle); 
+        hammer.add(head);
+        
+        // 关键修改：整体旋转 180度 或 调整内部坐标，这里我们直接重置位置
+        // 让棒槌自然下垂，准备敲击
+        this.hammerPivot.add(hammer);
+        
+        // 设置初始角度，稍微抬起
+        this.hammerPivot.rotation.z = -0.5; 
+        this.baseAngle = -0.5; // 更新基础角度
+        this.hitAngle = 0.5;   // 更新敲击目标角度
+    }
+
+    // 🟢 核心修复：判定逻辑优化
+    setInteraction(data) {
+        if (!this.group || !data.isPresent) return;
+
+        // --- 🟢 修复：恢复木鱼跟随手势旋转 ---
+        // 根据水平速度(vx)旋转木鱼 (Y轴)
+        if (Math.abs(data.vx) > 0.5) {
+            // 0.03 是灵敏度，可微调
+            this.group.rotation.y += data.vx * 0.03; 
+        }
+        // 根据垂直速度(vy)轻微倾斜木鱼 (X轴)，增加立体感
+        if (Math.abs(data.vy) > 0.5) {
+             // 限制倾斜角度，防止翻面
+            const targetX = 0.1 + data.vy * 0.02;
+            this.group.rotation.x += (targetX - this.group.rotation.x) * 0.1;
+        }
+
+        // --- 棒槌与敲击逻辑 (保持之前的优化) ---
+        if (!this.isHit) {
+            const sway = Math.max(-0.3, Math.min(0.3, data.vx * 0.05));
+            this.targetHammerAngle = this.baseAngle + sway;
+        }
+
+        const now = Date.now();
+        if (now - this.lastHitTime < 200) return;
+
+        const isDownwardStrike = data.vy < -1.5; 
+        const isNotHorizontalSwipe = Math.abs(data.vx) < 6.0;
+
+        if (isDownwardStrike && isNotHorizontalSwipe) {
+            this.triggerBonk();
+            this.lastHitTime = now;
+        }
+    }
+
+    triggerBonk() {
+        this.isHit = true;
+        
+        // 1. 棒槌敲击动画
+        this.hammerAngle = this.hitAngle; // 瞬间设为敲击位置 (瞬移产生打击感)
+        this.targetHammerAngle = this.baseAngle; // 目标设为回弹
+        
+        // 2. 木鱼弹性动画 (负值代表被压扁)
+        this.scaleSpring.vel = -15.0; 
+
+        // 3. 触发文字和回调
+        this._emitFloatingText();
+        if (this.onHit) this.onHit();
+
+        // 4. 重置状态
+        setTimeout(() => {
+            this.isHit = false;
+        }, 150);
+    }
+
+    _emitFloatingText() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512; 
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        
+        // 绘制发光文字
+        ctx.shadowColor = "rgba(23, 53, 201, 1)";
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = '#3ab7f1ff'; 
+        ctx.font = 'bold 100px "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('功德 +1', 256, 150);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.SpriteMaterial({ 
+            map: texture, 
+            transparent: true,
+            opacity: 1.0,
+            depthTest: false, // 🟢 关键：确保文字永远显示在模型前面，不会穿模
+            depthWrite: false
+        });
+        
+        const sprite = new THREE.Sprite(material);
+        // 随机一点点水平偏移，让文字不重叠
+        const randX = (Math.random() - 0.5) * 2.0;
+        sprite.position.set(randX, 3.5, 0); 
+        sprite.scale.set(4, 2, 1);
+        
+        this.group.add(sprite);
+        
+        // 加入管理数组
+        this.floatingTexts.push({
+            mesh: sprite,
+            age: 0,
+            velocity: 0.08 // 上升速度
+        });
     }
 
     update(time, beatValue = 0) {
         const dt = 0.016;
 
-        // --- 0. 外部强制敲击 (用于双手合十) ---
-        if (beatValue > 0.5 && !this.isHit) {
-            // 强制触发一次敲击动画
-            this.targetHammerAngle = 0.5; 
-            this.triggerBonk();
-            this.isHit = true;
-            // 迅速回弹
-            setTimeout(() => { this.targetHammerAngle = -0.4; this.isHit = false; }, 100);
-        }
-
-        // --- 1. 木槌动画跟随 ---
+        // --- 1. 棒槌动画 (插值) ---
+        // 增加回弹速度 (25.0) 让棒槌迅速归位
         const diff = this.targetHammerAngle - this.hammerAngle;
-        // 加快插值速度 (10.0 -> 20.0)，让敲击更干脆
-        this.hammerAngle += diff * 20.0 * dt;
-        
-        // [关键修改] 放宽角度限制，允许木槌砸得更深
-        // 0.1 -> 0.6 (允许砸进木头里)
-        if(this.hammerAngle > 0.6) this.hammerAngle = 0.6; 
-        if(this.hammerAngle < -1.5) this.hammerAngle = -1.5; // 允许抬得更高
-
+        this.hammerAngle += diff * 25.0 * dt;
         if (this.hammerPivot) {
             this.hammerPivot.rotation.z = this.hammerAngle;
         }
 
-        // --- 2. Q弹物理 (本体变形) ---
-        const springForce = (1.0 - this.scaleSpring.val) * 20.0; // 增加回弹力度
-        const damping = this.scaleSpring.vel * 0.6; // 减少阻尼，让它多晃两下
-        this.scaleSpring.vel += (springForce - damping) * dt;
+        // --- 2. 木鱼弹性物理 (Spring Physics) ---
+        // 模拟果冻效果：F = -kx - cv
+        const stiffness = 120.0; // 劲度系数
+        const damping = 8.0;     // 阻尼
+        const displacement = this.scaleSpring.val - 1.0; // 偏离平衡位置的量
+        
+        const force = -stiffness * displacement - damping * this.scaleSpring.vel;
+        this.scaleSpring.vel += force * dt;
         this.scaleSpring.val += this.scaleSpring.vel * dt;
 
         if (this.muyuMesh) {
-            const squash = this.scaleSpring.val;
-            // 压扁时横向变宽，纵向变短
-            const stretch = 1.0 + (1.0 - squash) * 0.6;
-            this.muyuMesh.scale.set(stretch, 0.8 * squash, stretch);
+            const s = this.scaleSpring.val;
+            // Y轴缩放 s，XZ轴反向缩放保持体积感，产生挤压变形效果
+            const buldge = 1.0 + (1.0 - s) * 0.5;
+            this.muyuMesh.scale.set(10 * buldge, 10 * s, 10 * buldge);
         }
 
-        // --- 3. 星星粒子更新 ---
-        this.stars.forEach(star => {
-            if (!star.visible) return;
-            star.position.add(star.velocity);
-            star.velocity.y -= 0.015; // 加重力
-            star.scale.multiplyScalar(0.92);
-            if (star.scale.x < 0.1) star.visible = false;
-        });
-    }
+        // --- 3. 浮动文字动画更新 ---
+        for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+            const item = this.floatingTexts[i];
+            item.age += dt;
+            item.mesh.position.y += item.velocity;
+            item.mesh.material.opacity = 1.0 - (item.age / 1.0); // 1秒内淡出
 
-    /**
-     * 核心交互逻辑
-     */
-    setInteraction(data) {
-        if (!this.group) return;
-
-        // [修改 1] 旋转灵敏度提升
-        // 0.005 -> 0.04 (提升8倍)
-        if (Math.abs(data.vx) > 0.5) {
-            this.group.rotation.y += data.vx * 0.04; 
-        }
-
-        // [修改 2] 敲击判定
-        // vy < -3.0 (向下挥手)
-        if (data.vy < -3.0) {
-            // [关键] 目标角度设为 0.5，让它真的“砸”下去
-            this.targetHammerAngle = 0.5;
-            
-            if (!this.isHit) {
-                this.triggerBonk();
-                this.isHit = true; 
-            }
-        } 
-        else if (data.vy > 2.0) {
-            // 向上挥手 -> 抬起
-            this.targetHammerAngle = -1.2; 
-            this.isHit = false; // 重置状态，准备下一次敲击
-        } else {
-            // 手停住时 -> 回到待机
-            // 如果没在敲击状态，就复位
-            if (Math.abs(this.hammerAngle - 0.5) > 0.1) {
-                this.targetHammerAngle = -0.4;
+            if (item.age >= 1.0) {
+                this.group.remove(item.mesh);
+                item.mesh.material.map.dispose();
+                item.mesh.material.dispose();
+                this.floatingTexts.splice(i, 1);
             }
         }
-    }
-
-    triggerBonk() {
-        // 施加巨大的向下的力，产生明显压扁
-        this.scaleSpring.vel = -8.0; 
-        this._emitStars();
-    }
-
-    // ==========================================
-    // 渲染构建 (保持不变)
-    // ==========================================
-    _createRealisticMuyu() {
-        const geo = new THREE.SphereGeometry(1.5, 64, 64); 
-        const gradientTexture = this._generateGradientTexture();
-        const mat = new THREE.MeshPhysicalMaterial({
-            map: gradientTexture, color: 0xffffff, roughness: 0.15,            
-            metalness: 0.0, clearcoat: 1.0, clearcoatRoughness: 0.1,    
-            reflectivity: 1.0, ior: 1.5,                   
-        });
-        this.muyuMesh = new THREE.Mesh(geo, mat);
-        this.muyuMesh.scale.y = 0.85; 
-        this.group.add(this.muyuMesh);
-
-        const mouthGeo = new THREE.CapsuleGeometry(0.15, 1.4, 16, 16);
-        const mouthMat = new THREE.MeshBasicMaterial({ color: 0xcc5500 }); 
-        const mouth = new THREE.Mesh(mouthGeo, mouthMat);
-        mouth.rotation.z = Math.PI / 2;
-        mouth.position.set(0, -0.3, 1.35); 
-        mouth.scale.set(1, 1, 0.8);
-        this.muyuMesh.add(mouth);
-    }
-
-    _createRealisticHammer() {
-        this.hammerPivot = new THREE.Group();
-        // 调整 Pivot 位置，让它更容易砸中中心
-        this.hammerPivot.position.set(2.6, 0.8, 0); 
-        this.group.add(this.hammerPivot);
-
-        const handleGeo = new THREE.CylinderGeometry(0.12, 0.12, 2.2, 32);
-        const handleMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.3, clearcoat: 0.5 });
-        const handle = new THREE.Mesh(handleGeo, handleMat);
-        handle.position.y = 1.0;
-        handle.rotation.z = -0.2; 
-
-        const headGeo = new THREE.SphereGeometry(0.5, 32, 32);
-        const headMat = new THREE.MeshPhysicalMaterial({ color: 0xffaa44, roughness: 0.2, clearcoat: 0.8 });
-        const head = new THREE.Mesh(headGeo, headMat);
-        head.position.set(-0.3, 2.0, 0); 
-        head.scale.y = 0.8; 
-
-        const hammer = new THREE.Group();
-        hammer.add(handle);
-        hammer.add(head);
-        // 调整初始偏移
-        hammer.position.set(0, -1.5, 0);
-
-        this.hammerPivot.add(hammer);
-        this.hammerMesh = hammer;
-    }
-
-    _generateGradientTexture() {
-        const canvas = document.createElement('canvas');
-        canvas.width = 1; canvas.height = 128; 
-        const ctx = canvas.getContext('2d');
-        const grd = ctx.createLinearGradient(0, 0, 0, 128);
-        grd.addColorStop(0.0, '#ffcc00'); 
-        grd.addColorStop(0.4, '#ff9966'); 
-        grd.addColorStop(1.0, '#fff5e6'); 
-        ctx.fillStyle = grd;
-        ctx.fillRect(0, 0, 1, 128);
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.colorSpace = THREE.SRGBColorSpace; 
-        texture.needsUpdate = true;
-        return texture;
-    }
-
-    _createStarParticles() {
-        const starGeo = new THREE.IcosahedronGeometry(0.2, 0); // 星星稍微大一点
-        const starMat = new THREE.MeshBasicMaterial({ color: 0xffffaa });
-        for (let i = 0; i < 15; i++) {
-            const star = new THREE.Mesh(starGeo, starMat);
-            star.visible = false;
-            this.scene.add(star);
-            this.stars.push(star);
-        }
-    }
-
-    _emitStars() {
-        let count = 0;
-        this.stars.forEach(star => {
-            if (star.visible || count >= 5) return;
-            star.visible = true;
-            const worldPos = new THREE.Vector3();
-            this.muyuMesh.getWorldPosition(worldPos);
-            // 从木鱼顶部喷发
-            star.position.copy(worldPos);
-            star.position.y += 0.8; 
-            star.scale.set(1,1,1);
-            // 爆发范围更大
-            star.velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 0.8,
-                Math.random() * 0.5 + 0.4,
-                (Math.random() - 0.5) * 0.8
-            );
-            count++;
-        });
     }
 }

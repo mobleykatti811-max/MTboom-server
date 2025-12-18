@@ -9,47 +9,38 @@
     <style>
         /* 1. 设置背景图，并强制覆盖原本的黑色背景 */
         #landing-page {
-            /* 确保图片路径正确，如果是放在 public/assets/images/ 下 */
+            /* 确保图片路径正确 */
             background-image: url('/assets/images/landing-bg.jpg'); 
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            /* 关键：覆盖 style.css 里的黑色背景 */
             background-color: transparent !important; 
         }
 
-        /* 2. 标题颜色改深 (深金色渐变)，否则在浅色图上看不见 */
+        /* 2. 标题颜色改深 */
         .landing-title {
             background: linear-gradient(to bottom, #d4a017 0%, #8a6e0b 100%) !important;
             -webkit-background-clip: text !important;
             -webkit-text-fill-color: transparent !important;
-            text-shadow: none !important; /* 去掉发光，增加清晰度 */
+            text-shadow: none !important;
         }
 
-        /* 3. 卡片改成“磨砂白”风格，适应浅色背景 */
+        /* 3. 卡片磨砂白风格 */
         .product-card {
-            background: rgba(255, 255, 255, 0.4) !important; /* 半透明白色 */
-            border: 1px solid rgba(212, 160, 23, 0.3) !important; /* 深金边框 */
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important; /* 轻微阴影 */
+            background: rgba(255, 255, 255, 0.4) !important;
+            border: 1px solid rgba(212, 160, 23, 0.3) !important;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
         }
         
-        /* 卡片文字颜色变深 */
-        .product-card p {
-            color: #555 !important; 
-        }
+        .product-card p { color: #555 !important; }
 
-        /* 4. 选中卡片样式加强 */
         .product-card.active {
             background: rgba(255, 255, 255, 0.8) !important;
             border-color: #B8860B !important;
             transform: translateY(-5px) scale(1.05);
         }
 
-        /* 5. 提示文字颜色变深 */
-        #landing-page p {
-            color: #666 !important;
-            text-shadow: none !important;
-        }
+        #landing-page p { color: #666 !important; text-shadow: none !important; }
     </style>
 </head>
 <body>
@@ -57,14 +48,14 @@
     <canvas id="main-canvas"></canvas>
 
     <section id="landing-page">
+        <div id="my-treasure-btn" class="glass-btn">
+            <span style="font-size: 16px;">🎁</span> 我的法宝
+        </div>
+
         <div class="landing-content">
             <h1 class="landing-title">✨ 请选择你的魔法 ✨</h1>
-            
-            <div id="product-showcase">
-                </div>
-
+            <div id="product-showcase"></div>
             <p style="color: #aaa; font-size: 12px; margin: 15px 0;">🔊 请打开声音体验最佳效果</p>
-
             <button id="start-btn">开始加载</button>
         </div>
     </section>
@@ -78,14 +69,8 @@
 
     <section id="view-ar" class="view-section">
         <div class="ar-ui-overlay">
-            <div id="home-btn" class="glass-btn">
-                🏠 主页
-            </div>
-            
-            <div id="audio-btn" class="glass-btn" style="top: 80px;">
-                🔊 声音
-            </div>
-
+            <div id="home-btn" class="glass-btn">🏠 主页</div>
+            <div id="audio-btn" class="glass-btn" style="top: 80px;">🔊 声音</div>
             <div id="gesture-guide" class="glass-panel">
                 <h3 id="guide-title">准备就绪</h3>
                 <div id="guide-list"></div>
@@ -93,7 +78,44 @@
         </div>
     </section>
 
-    <div class="camera-widget" id="camera-box" style="display:none;"> 
+    <section id="view-treasure" class="view-section" style="display: none; z-index: 20000;">
+        <div class="glass-panel treasure-box-panel">
+            <div class="treasure-header">
+                <h2>🎒 我的百宝囊</h2>
+                <div class="close-btn" id="close-treasure-btn" onclick="document.getElementById('view-treasure').style.display='none'">×</div>
+            </div>
+            <div id="treasure-grid" class="treasure-grid">
+                <div class="empty-state">
+                    <span style="font-size:40px; opacity:0.5;">🕸️</span>
+                    <p>暂无法宝，快去获取吧</p>
+                </div>
+            </div>
+            <button class="btn-gold" style="width:100%; margin-top:15px; padding: 10px;" onclick="document.getElementById('view-treasure').style.display='none'">
+                返回首页
+            </button>
+        </div>
+    </section>
+
+    <div id="universal-modal" class="modal-overlay" style="display: none;">
+        <div class="glass-panel modal-box">
+            <h3 id="modal-title">验证身份</h3>
+
+            <div id="modal-product-preview" class="preview-box" style="display:none;">
+                <div class="preview-placeholder">✨ 3D 预览加载中...</div>
+            </div>
+            
+            <p id="modal-desc"></p>
+            <input type="text" id="modal-input-blessing" class="glass-input" placeholder="输入祝福语(限15字)"  maxlength="15">
+            <input type="tel" id="modal-input-phone" class="glass-input" placeholder="请输入手机号作为支付凭证" style="display:none; margin-top:10px;" maxlength="11">
+            <input type="tel" id="modal-input-phone-repeat" class="glass-input" placeholder="请确认手机号" style="display:none; margin-top:10px;" maxlength="11">            
+            <input type="text" id="modal-input-extra" class="glass-input" placeholder="订单后4位 (选填)" style="display:none; margin-top:10px;" maxlength="4">
+            
+            <div class="modal-btns" style="margin-top:20px; display:flex; gap:10px;">
+                <button id="modal-btn-cancel" class="glass-btn" style="flex:1; position:static;">取消</button>
+                <button id="modal-btn-confirm" class="glass-btn" style="flex:1; position:static; background:rgba(255,215,0,0.3);">确定</button>
+            </div>
+        </div>
+    </div> <div class="camera-widget" id="camera-box" style="display:none;"> 
         <video id="ar-camera-feed" muted playsinline></video>
         <div class="camera-toggle-btn" onclick="toggleCamera()">▼</div>
     </div>
@@ -108,7 +130,7 @@
     <script type="module" src="/src/main.js"></script>
 
     <script>
-        // 摄像头折叠逻辑 (保留原样)
+        // 摄像头折叠逻辑
         function toggleCamera() {
             const box = document.getElementById('camera-box');
             const btn = box.querySelector('.camera-toggle-btn');
@@ -117,4 +139,4 @@
         }
     </script>
 </body>
-</html>
+</html> 

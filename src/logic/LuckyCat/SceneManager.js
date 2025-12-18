@@ -55,18 +55,25 @@ export class SceneManager {
 
     // ✅ [新增] 销毁方法：路由切换时调用
     dispose() {
-        // 1. 移除 UI 面板
-        if (this.uiContainer && this.uiContainer.parentNode) {
-            this.uiContainer.parentNode.removeChild(this.uiContainer);
-            this.uiContainer = null;
-            console.log("🗑️ LuckyCat UI 已移除");
+        // 1. 移除 UI 面板 (通过 ID 强制查找，防止引用丢失)
+        const existingUI = document.getElementById('lucky-cat-ui');
+        if (existingUI) {
+            existingUI.remove();
         }
+        this.uiContainer = null;
+        console.log("🗑️ LuckyCat UI 已移除");
 
         // 2. 清理 Three.js 资源
         if (this.renderer) {
             this.renderer.dispose();
-            // 也可以在这里遍历场景清理 geometry/material，视需求而定
+            this.renderer.forceContextLoss(); // 强制释放 WebGL 上下文
+            this.renderer.domElement = null;
+            this.renderer = null;
         }
+        
+        // 3. 停止动画循环
+        this.scene = null;
+        this.camera = null;
     }
 
     // >>> 新增：创建控制面板 <<<
@@ -75,6 +82,8 @@ export class SceneManager {
         this.uiContainer = document.createElement('div');
         const container = this.uiContainer; // 保持局部变量引用，下方代码无需改动
 
+        // 【必须添加这一行】
+        container.id = 'lucky-cat-ui';
         container.style.position = 'absolute';
         container.style.top = '10px';
         container.style.right = '10px';
@@ -125,8 +134,11 @@ export class SceneManager {
 
         container.appendChild(countDiv);
         container.appendChild(sizeDiv);
-        document.body.appendChild(container);
-    }
+        // 改用 canvas 的父元素，这样它会随着 AR 视图一起被隐藏/移除
+        if (this.canvas.parentElement) {
+        this.canvas.parentElement.appendChild(container);
+    }    
+}
 
     // >>> 新增：动态调整猫咪数量 <<<
     updateCatCount(newCount) {
