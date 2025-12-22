@@ -52,6 +52,13 @@
             <span style="font-size: 16px;">🎁</span> 我的法宝
         </div>
 
+        <div class="gold-dust-container">
+            <div class="dust"></div><div class="dust"></div><div class="dust"></div>
+            <div class="dust"></div><div class="dust"></div><div class="dust"></div>
+            <div class="dust"></div><div class="dust"></div><div class="dust"></div>
+            <div class="dust"></div><div class="dust"></div><div class="dust"></div>
+        </div>
+
         <div class="landing-content">
             <h1 class="landing-title">✨ 请选择你的魔法 ✨</h1>
             <div id="product-showcase"></div>
@@ -106,6 +113,14 @@
             
             <p id="modal-desc"></p>
             <input type="text" id="modal-input-blessing" class="glass-input" placeholder="输入祝福语(限15字)"  maxlength="15">
+            <div id="photo-upload-box" style="display:none; margin-top:15px; text-align:left;">
+                <label style="color:var(--gold); font-size:12px; display:block; margin-bottom:8px;">📸 上传回忆照片 (最多6张)</label>
+                <div id="photo-preview-container" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                    <div id="add-photo-btn" style="width:60px; height:60px; border:1px dashed var(--gold); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:24px; color:var(--gold); cursor:pointer;">+</div>
+                </div>
+                <input type="file" id="actual-file-input" multiple accept="image/*" style="display:none;">
+                <div id="upload-status" style="font-size:10px; color:rgba(255,255,255,0.5);">已选择 0/6 张</div>
+            </div>
             <input type="tel" id="modal-input-phone" class="glass-input" placeholder="请输入手机号作为支付凭证" style="display:none; margin-top:10px;" maxlength="11">
             <input type="tel" id="modal-input-phone-repeat" class="glass-input" placeholder="请确认手机号" style="display:none; margin-top:10px;" maxlength="11">            
             <input type="text" id="modal-input-extra" class="glass-input" placeholder="订单后4位 (选填)" style="display:none; margin-top:10px;" maxlength="4">

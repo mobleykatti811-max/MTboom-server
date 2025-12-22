@@ -148,7 +148,7 @@ export class HandTracker {
         // 值越大，说明手指越直（张开）
         
         const GRAB_ENTER_THRESHOLD = 1.05; // 必须捏得比较紧 (< 1.05) 才能触发抓取
-        const GRAB_EXIT_THRESHOLD = 1.35;  // 必须张得比较开 (> 1.35) 才能触发松开
+        const GRAB_EXIT_THRESHOLD = 1.15;  // 必须张得比较开 (> 1.35) 才能触发松开
 
         if (this._currentGrabState) {
             // 当前是【抓取】状态：检测是否松开

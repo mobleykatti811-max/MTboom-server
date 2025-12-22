@@ -41,7 +41,7 @@ export class Muyu3D {
     _loadWoodenFishModel() {
         const loader = new GLTFLoader();
         // 确保路径正确
-        loader.load('/src/logic/WoodenFish/WoodenFish3D.glb', (gltf) => {
+        loader.load('/assets/3D/WoodenFish3D.glb', (gltf) => {
             this.muyuMesh = gltf.scene;
             this.muyuMesh.traverse(child => { 
                 if (child.isMesh) {

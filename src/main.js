@@ -1,3 +1,4 @@
+let uploadedPhotos = []; // 存储压缩后的 Base64 数组
 import { apiClient } from './logic/apiClient.js';
 import { CameraManager } from './logic/CameraManager.js'; // 🟢 新增引入
 
@@ -27,7 +28,7 @@ const PRODUCT_CONFIG = {
     // ✅ 新增 PhotoTree 配置
     PhotoTree: { 
         key: 'PhotoTree', 
-        type: 'FREE',       // 设定为付费产品（如果是免费改成 'FREE'，价格改成 0）
+        type: 'CUSTOM',       // 设定为付费产品（如果是免费改成 'CUSTOM'，价格改成 0）
         price: 0,         // 价格
         title: '📸 圣诞照片墙', 
         btnText: '点亮回忆', 
@@ -158,42 +159,41 @@ function updateStartBtnText(btn) {
 let isTrialMode = false; 
 let trialTimer = null;
 
-async function onUserStart(e) {
+// 将参数名 customText 改为 giftData 以符合语义，但保持逻辑兼容
+async function onUserStart(e, skipModal = false, giftData = null) {
     // 阻止冒泡，防止点穿
-    if(e) e.stopPropagation();
+    if(e && typeof e.stopPropagation === 'function') e.stopPropagation();
 
     const config = PRODUCT_CONFIG[currentProductKey];
-    console.log(`🚀 启动验证: ${currentProductKey} (类型: ${config.type || 'FREE'})`);
-    
-    // 停止之前的循环与计时器
-    if (animationFrameId) cancelAnimationFrame(animationFrameId);
-    if (trialTimer) clearInterval(trialTimer);
-    
-    const btn = e.target;
-    
-    // --- 【分支1：定制类拦截】 ---
-    if (config.type === 'CUSTOM') {
-        // 调用定制弹窗逻辑 (需配合下方的 UI 函数)
+    console.log(`🚀 启动验证: ${currentProductKey} (跳过弹窗: ${skipModal})`);
+
+    // --- 【业务绕过逻辑】 ---
+    if (!skipModal && config.type === 'CUSTOM') {
         openCustomGiftModal(config); 
         return; 
     }
 
-    // --- 【分支2：付费类鉴权】 ---
+    // 停止之前的循环与计时器
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    if (trialTimer) clearInterval(trialTimer);
+    
+    const btn = e ? e.target : document.querySelector('#start-btn');
+   
+    // --- 【付费类鉴权】 ---
     isTrialMode = false; 
     if (config.type === 'PAID') {
         btn.disabled = true;
         btn.textContent = "正在校验授权...";
         
-        // 从本地获取手机号尝试静默校验
         const savedPhone = localStorage.getItem('mtboom_user_phone') || "";
         try {
             const res = await apiClient.checkUnlock(savedPhone, "");
             if (!res.success) {
                 console.log("⚠️ 未检测到永久授权，开启15秒试玩模式");
-                isTrialMode = true; // 标记试玩
+                isTrialMode = true;
             }
         } catch (err) {
-            isTrialMode = true; // 网络异常默认走试玩
+            isTrialMode = true;
         }
     }
 
@@ -204,14 +204,9 @@ async function onUserStart(e) {
     const moduleLoader = SCENE_MODULES[currentProductKey];
 
     try {
-        // 🟢 1. 优先启动摄像头 (全局统一管理)
-        // 这样做的好处是：HandTracker 初始化时，video 标签里已经有画面了
         await CameraManager.start();
-
-        // 🟢 2.【关键修改】在这里创建全新的 Canvas！
         const freshCanvas = recreateCanvas();
 
-        // 3. 并行加载业务模块
         const [SceneModule, TrackerModule] = await Promise.all([
             moduleLoader.scene(),
             moduleLoader.tracker()
@@ -221,7 +216,10 @@ async function onUserStart(e) {
 
         sceneManager = new SceneModule.SceneManager(freshCanvas);
         handTracker = new TrackerModule.HandTracker();
-        sceneManager.init();
+        
+        // 🟢 最小修改：直接透传 giftData。
+        // 无论它是金树的字符串 "圣诞快乐"，还是照片树的对象 { blessing, photos }
+        sceneManager.init(giftData); 
 
         // 切换 UI 状态
         landingPage.style.display = 'none';
@@ -232,14 +230,12 @@ async function onUserStart(e) {
         setupAudioSystem();
         await handTracker.init();
 
-        tick(); // 开始渲染循环
+        tick(); 
 
-        // --- 【试玩模式：启动倒计时】 ---
         if (isTrialMode) {
             startTrialCountdown(); 
         }
 
-        // 后台记录
         initBackendLogic();
 
     } catch (err) {
@@ -270,13 +266,13 @@ function startTrialCountdown() {
 }
 
 /**
- * 试玩结束处理 (修复版：保留画面 + 引导支付)
+ * 试玩结束处理：增加“已支付校验”逻辑
  */
 function handleTrialEnd() {
     const modal = document.getElementById('universal-modal');
     if (!modal) return;
 
-    // 1. 隐藏所有输入框和预览框（因为第一阶段只要按钮）
+    // 1. 隐藏多余输入框
     modal.querySelectorAll('.glass-input').forEach(input => input.style.display = 'none');
     const previewBox = document.getElementById('modal-product-preview');
     if (previewBox) previewBox.style.display = 'none';
@@ -285,20 +281,46 @@ function handleTrialEnd() {
     document.getElementById('modal-title').innerText = "✨ 试玩已结束 ✨";
     document.getElementById('modal-desc').innerText = "付费 9.9 元即可解锁永久畅玩权限";
 
-    // 3. 配置按钮
     const cancelBtn = document.getElementById('modal-btn-cancel');
     const confirmBtn = document.getElementById('modal-btn-confirm');
 
-    // 左边：返回主页
-    cancelBtn.innerText = "返回主页";
-    cancelBtn.onclick = () => {
-        modal.style.display = 'none';
-        backToHome();
-    };
+    // --- 分支处理：如果本地已经存了单号，说明用户可能刚付完钱回来 ---
+    const lastOid = localStorage.getItem('mtboom_last_oid');
+    const savedPhone = localStorage.getItem('mtboom_user_phone');
 
+    if (lastOid && savedPhone) {
+        cancelBtn.innerText = "已支付，立即验证";
+        cancelBtn.onclick = async () => {
+            cancelBtn.innerText = "验证中...";
+            try {
+                // 触发后端主动查询逻辑
+                const res = await apiClient.checkUnlock(savedPhone, lastOid);
+                if (res.success) {
+                    alert("✅ 验证成功！欢迎使用永久版");
+                    modal.style.display = 'none';
+                    isTrialMode = false; // 关闭试玩限制
+                    if (trialTimer) clearInterval(trialTimer);
+                    document.getElementById('guide-title').innerText = PRODUCT_CONFIG[currentProductKey].title;
+                } else {
+                    alert("🚫 尚未检测到支付成功，请确认是否完成支付");
+                    cancelBtn.innerText = "已支付，立即验证";
+                }
+            } catch (err) {
+                alert("网络繁忙，请稍后再试");
+                cancelBtn.innerText = "已支付，立即验证";
+            }
+        };
+    } else {
+        cancelBtn.innerText = "返回主页";
+        cancelBtn.onclick = () => {
+            modal.style.display = 'none';
+            backToHome();
+        };
+    }
+
+    // 右边按钮：继续去支付
     confirmBtn.innerText = "9.9解锁体验";
     confirmBtn.onclick = () => {
-        // 🟢 关键修改：传入第二个参数 true，表示进入解锁模式
         openCustomGiftModal(PRODUCT_CONFIG[currentProductKey], true);
     };
 
@@ -550,85 +572,132 @@ function initTreasureBox() {
     };
 }
 
-// main.js - 替换 openCustomGiftModal 函数
+// --- main.js ---
+const IS_XMAS_FREE = true; // 前端同步开关
+
+// ... 其他代码 ...
+// main.js
+
 function openCustomGiftModal(config, isUnlock = false) {
     const modal = document.getElementById('universal-modal');
-    const previewBox = document.getElementById('modal-product-preview'); 
-    const phoneInput = document.getElementById('modal-input-phone');
-    const blessingInput = document.getElementById('modal-input-blessing');
+    
     const confirmBtn = document.getElementById('modal-btn-confirm');
-    const cancelBtn = document.getElementById('modal-btn-cancel');
-    const extraInput = document.getElementById('modal-input-phone-repeat'); 
-    const modalDesc = document.getElementById('modal-desc');
+    const phoneInput = document.getElementById('modal-input-phone');
+    const extraInput = document.getElementById('modal-input-phone-repeat');
+    const blessingInput = document.getElementById('modal-input-blessing');
+    const previewBox = document.getElementById('modal-product-preview');
+
+    // 🟢 最小修改：新增照片相关 DOM 引用
+    const photoBox = document.getElementById('photo-upload-box');
+    const fileInput = document.getElementById('actual-file-input');
+    const addBtn = document.getElementById('add-photo-btn');
+    const statusText = document.getElementById('upload-status');
+    const previewContainer = document.getElementById('photo-preview-container');
 
     if (!modal || !confirmBtn) return;
 
-    // 🔴 显式状态重置与流程分支切换
-    document.getElementById('modal-input-extra').style.display = 'none';
-    document.getElementById('modal-input-phone-repeat').style.display = 'block';
+    // --- 状态重置 ---
+    uploadedPhotos = []; // 重置全局照片数组
+    if (phoneInput) phoneInput.style.display = 'block';
+    if (extraInput) extraInput.style.display = 'block';
+    if (blessingInput) blessingInput.style.display = 'block';
     
-    // 🟢 关键：根据 isUnlock 开关“祝福语”和“预览框”
-    const displayStyle = isUnlock ? 'none' : 'block';
-    if (blessingInput) blessingInput.style.display = displayStyle;
-    if (modalDesc) modalDesc.style.display = displayStyle;
-    if (previewBox) previewBox.style.display = isUnlock ? 'none' : 'flex';
-
-    // 1. 动态设置标题 (定制 -> 解锁)
-    const titlePrefix = isUnlock ? "🔓 解锁" : "🎁 定制";
-    document.getElementById('modal-title').innerText = `${titlePrefix} ${config.title.split(' ')[1]}`;
-    
-    if (!isUnlock && modalDesc) {
-        modalDesc.innerText = "请输入您的祝福语";
-    }
-    
-    // 2. 预览内容 (仅在定制模式显示)
-    if (previewBox && !isUnlock) {
-        previewBox.innerHTML = `<div style="font-size:70px; filter:drop-shadow(0 0 10px gold);">${config.iconEmoji}</div>`;
-    }
-    
-    // 3. 配置输入框 (手机号及二次确认)
-    phoneInput.style.display = 'block';
-    phoneInput.value = ""; 
-    phoneInput.placeholder = "请输入您的手机号"; 
-    
-    if (extraInput) {
-        extraInput.style.display = 'block';
-        extraInput.value = ""; 
-        extraInput.placeholder = "再次输入手机号确认";
-        extraInput.type = "tel";
+    // 🟢 最小修改：根据产品 Key 切换照片上传区的显示
+    if (photoBox) {
+        const isPhotoTree = config.key === 'PhotoTree';
+        photoBox.style.display = isPhotoTree ? 'block' : 'none';
+        if (isPhotoTree) renderPhotoPreviews(); 
     }
 
-    // 4. 修改按钮文本
-    confirmBtn.innerText = isUnlock ? "立即解锁" : `去支付 ${config.price} 元`;
+    if (previewBox) {
+        previewBox.style.display = 'flex';
+        previewBox.innerHTML = `<div style="font-size:70px;">${config.iconEmoji}</div>`;
+    }
+
+    // 🟢 最小修改：绑定照片选择事件
+    if (addBtn && fileInput) {
+        addBtn.onclick = () => fileInput.click();
+        fileInput.onchange = async (e) => {
+            const files = Array.from(e.target.files).slice(0, 6 - uploadedPhotos.length);
+            for (const file of files) {
+                const compressed = await processImage(file); // 使用压缩函数
+                uploadedPhotos.push(compressed);
+            }
+            renderPhotoPreviews();
+            fileInput.value = ''; // 清除选择，方便下次触发
+        };
+    }
+
+    // 照片预览渲染函数 (局部定义，不影响外部)
+    function renderPhotoPreviews() {
+        if (!previewContainer) return;
+        previewContainer.querySelectorAll('.photo-item').forEach(el => el.remove());
+        uploadedPhotos.forEach((base64, idx) => {
+            const div = document.createElement('div');
+            div.className = 'photo-item';
+            div.style.cssText = `width:60px; height:60px; border-radius:8px; background:url(${base64}); background-size:cover; position:relative; border:1px solid var(--gold);`;
+            div.innerHTML = `<div style="position:absolute; top:-5px; right:-5px; background:#ff4444; color:white; border-radius:50%; width:18px; height:18px; font-size:12px; text-align:center; line-height:18px; cursor:pointer; font-weight:bold;">×</div>`;
+            div.querySelector('div').onclick = (e) => {
+                e.stopPropagation();
+                uploadedPhotos.splice(idx, 1);
+                renderPhotoPreviews();
+            };
+            previewContainer.insertBefore(div, addBtn);
+        });
+        if (statusText) statusText.innerText = `已选择 ${uploadedPhotos.length}/6 张`;
+        if (addBtn) addBtn.style.display = uploadedPhotos.length >= 6 ? 'none' : 'flex';
+    }
+
+    confirmBtn.innerText = IS_XMAS_FREE ? `圣诞限免：立即点亮` : (isUnlock ? "立即解锁" : `去支付 ${config.price} 元`);
     confirmBtn.disabled = false;
 
-    // 5. 绑定支付逻辑
-    confirmBtn.onclick = () => {
+    confirmBtn.onclick = async () => {
         const phone = phoneInput.value.trim();
         const confirmPhone = extraInput ? extraInput.value.trim() : "";
-        // 如果是解锁，祝福语传空
-        const blessing = (blessingInput && !isUnlock) ? blessingInput.value.trim() : "";
+        const blessing = blessingInput ? blessingInput.value.trim() : "";
 
-        if (!phone || phone.length !== 11) {
-            alert("请输入正确的11位手机号");
+        if (!phone || phone.length !== 11) { alert("请输入正确的11位手机号"); return; }
+        if (phone !== confirmPhone) { alert("两次输入的手机号不一致"); return; }
+        
+        // 🟢 最小修改：照片树必传校验
+        if (config.key === 'PhotoTree' && uploadedPhotos.length === 0) {
+            alert("请至少上传一张回忆照片");
             return;
         }
 
-        if (phone !== confirmPhone) {
-            alert("两次输入的手机号不一致，请检查");
-            return;
-        }
+        try {
+            confirmBtn.disabled = true;
+            confirmBtn.innerText = "⏳ 正在点亮魔法...";
 
-        localStorage.setItem('mtboom_last_custom_data', JSON.stringify({ phone, blessing }));
-        
-        const mbdProductId = "YOUR_MBD_ID"; 
-        const payUrl = `https://mbd.pub/o/bread/${mbdProductId}?remark=${encodeURIComponent(phone + '|' + blessing)}`;
-        
-        console.log("🔗 准备跳转支付:", payUrl);
-        window.location.href = payUrl;
+            // 🟢 最小修改：打包 giftData
+            const giftData = { blessing };
+            if (config.key === 'PhotoTree') {
+                giftData.photos = uploadedPhotos;
+            }
+
+            const res = await apiClient.createIntent(config.key, phone, giftData);
+            const internal_oid = res.internal_oid;
+
+            localStorage.setItem('mtboom_last_oid', internal_oid);
+            localStorage.setItem('mtboom_user_phone', phone);
+
+            const shareUrl = `${window.location.origin}${window.location.pathname}?oid=${internal_oid}`;
+            showSharePrompt(shareUrl);
+
+            if (IS_XMAS_FREE) {
+                console.log("🎁 圣诞限免：启动场景");
+                modal.style.display = 'none';
+                // 🟢 最小修改：传递完整的 giftData (包含照片和祝福语)
+                onUserStart(null, true, giftData); 
+                return; 
+            }
+        }
+        catch (err) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerText = "确定";
+        }
     };
 
-    if (cancelBtn) cancelBtn.onclick = () => modal.style.display = 'none';
     modal.style.display = 'flex';
 }
 
@@ -705,9 +774,167 @@ function recreateCanvas() {
 // 🚀 程序启动入口
 // ===================================
 // 等待 DOM 加载完毕再执行，最安全
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
     initShowcase();
     initAudioControl();
     initPrivacy();
     initTreasureBox();
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const oid = urlParams.get('oid'); // 新增：识别分享 ID
+
+    // --- 场景 A：识别到分享链接 (优先级最高) ---
+    if (oid) {
+        console.log("🎁 发现分享礼物，正在准备点亮...");
+        // 隐藏首页，显示一个简单的加载文案
+        landingPage.style.display = 'none';
+        const loader = document.createElement('div');
+        loader.id = 'gift-loading';
+        loader.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--gold);z-index:9999;';
+        loader.innerText = '正在载入好友的祝福...';
+        document.body.appendChild(loader);
+
+        try {
+            const res = await apiClient.getGift(oid); // 需要在 apiClient 补充这个方法
+            if (res.success) {
+                currentProductKey = res.product_key;
+                // ❌ 原代码：const blessing = res.gift_data?.blessing || "";
+                // ❌ 原代码：onUserStart(null, true, blessing); 
+                // 🟢 修正后：直接获取完整的 gift_data 对象（里面包含了 blessing 和 photos）
+                const giftData = res.gift_data || {}; 
+                if (loader) loader.remove();
+                // 🟢 修正后：将完整的对象传给启动函数
+                onUserStart(null, true, giftData);
+            }
+        } catch (e) {
+            loader.innerText = "礼物加载失败";
+            setTimeout(() => location.href = location.origin, 2000);
+        }
+        return; // 处理完分享就不执行后面的逻辑了
+    }
+
+    // --- 场景 B：你原本的回航自动识别逻辑 (保留并略微微调) ---
+    if (urlParams.get('pay_success') === 'true' || urlParams.get('custom_id')) {
+        const savedPhone = localStorage.getItem('mtboom_user_phone');
+        const lastOid = localStorage.getItem('mtboom_last_oid') || urlParams.get('custom_id');
+        
+        if (savedPhone && lastOid) {
+            console.log("🚀 检测到支付回航，正在尝试自动解锁...");
+            try {
+                const res = await apiClient.checkUnlock(savedPhone, lastOid);
+                if (res.success) {
+                    alert("✨ 欢迎回来！法宝已自动解锁。");
+                }
+            } catch (e) {
+                console.log("自动解锁尝试结束");
+            }
+        }
+    }
 });
+
+// main.js 底部
+
+// 修改版：带关闭按钮，且点击复制后不会自动消失
+// main.js
+
+function showSharePrompt(url) {
+    // 1. 彻底清理旧弹窗，防止多个弹窗叠加导致视觉混乱
+    const oldPrompt = document.getElementById('share-prompt-box');
+    if (oldPrompt) {
+        oldPrompt.style.display = 'none';
+        oldPrompt.remove();
+    }
+
+    // 2. 创建容器
+    const prompt = document.createElement('div');
+    prompt.id = 'share-prompt-box';
+    
+    // 🟢【视觉优化】：加深了背景不透明度 (0.9)，并确保 z-index 在最顶层
+    prompt.style.cssText = `
+        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+        width: 90%; max-width: 400px; z-index: 99999; padding: 20px 15px 15px;
+        background: rgba(0,0,0,0.9); border: 1px solid var(--gold);
+        border-radius: 12px; text-align: center; backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px); box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        pointer-events: auto;
+    `;
+
+    // 3. 内部布局
+    prompt.innerHTML = `
+        <div id="share-close-x" style="position: absolute; top: 5px; right: 10px; 
+             color: rgba(255,255,255,0.5); font-size: 20px; cursor: pointer; padding: 5px;">✕</div>
+        <div style="font-size:14px; color:var(--gold); margin-bottom:12px; font-weight:bold;">✨ 专属魔法链接已生成 ✨</div>
+        <input type="text" value="${url}" readonly style="
+            width:100%; padding:10px; background:rgba(255,255,255,0.1); 
+            border:1px solid rgba(255,255,255,0.1); color:#fff; font-size:12px; 
+            border-radius:6px; margin-bottom:12px; text-align:center; outline:none;
+        ">
+        <button id="copy-btn" class="btn-gold" style="width:100%; padding:12px; font-size:14px;">一键复制发送给好友</button>
+    `;
+
+    document.body.appendChild(prompt);
+
+    // 4. 事件绑定
+    // 🟢【关键修复】：先隐藏再移除，解决毛玻璃残影问题
+    document.getElementById('share-close-x').onclick = () => {
+        prompt.style.display = 'none'; 
+        setTimeout(() => prompt.remove(), 50); 
+    };
+
+    // 复制逻辑
+    const copyBtn = document.getElementById('copy-btn');
+    copyBtn.onclick = function() {
+        navigator.clipboard.writeText(url).then(() => {
+            this.innerText = "✅ 已复制！快去微信粘贴";
+            this.style.background = "linear-gradient(45deg, #11998e, #38ef7d)";
+            this.style.color = "#fff";
+            this.style.border = "none";
+        }).catch(() => {
+            this.innerText = "❌ 请手动长按输入框复制";
+        });
+    };
+}
+
+/**
+ * 🛠️ 核心工具：图片压缩
+ * 将图片缩放至 400x500 左右，并降低质量，确保 Base64 不会过大
+ */
+async function processImage(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 400;
+                const MAX_HEIGHT = 500;
+                let width = img.width;
+                let height = img.height;
+
+                // 计算缩放比例
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                // 质量设为 0.7，平衡清晰度与体积
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
+            };
+        };
+    });
+}
+
+// 删除旧的 window.copyAndClose，因为逻辑已经写在上面了
+// window.copyAndClose = ... (不需要了)

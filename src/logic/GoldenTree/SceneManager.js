@@ -28,23 +28,35 @@ export class SceneManager {
         this.dustSystem = null; // 悬浮尘埃
     }
 
-    init() {
+    // 🟢 关键修改：改为 async，并解析 giftData
+    async init(giftData = null) {
         console.log("🎬 正在加载至尊画质引擎...");
+        
+        // 🟢 核心适配：如果传进来的是对象，提取 blessing 字符串；如果是字符串则直接使用
+        const customText = (giftData && typeof giftData === 'object') ? giftData.blessing : giftData;
         
         this._setupRenderer();
         this._setupScene();
         this._setupCamera();
         
-        // --- 核心视觉构建 (按顺序堆叠图层) ---
-        this._createAtmosphere(); // 1. 背景层 (黄金星云)
-        this._createGodRays();    // 2. 气氛层 (圣光)
-        this._addObjects();       // 3. 主体层 (树 + 倒影)
-        this._createDust();       // 4. 前景层 (漂浮金尘)
+        this._createAtmosphere(); 
+        this._createGodRays(); 
         
-        this._setupLights();      // 灯光
-        this._setupPostProcessing(); // 后期 (Bloom)
+        // 🟢 关键修改：增加 await，确保树加载完再进行下一步
+        await this._addObjects(customText); 
         
+        this._createDust(); 
+        this._setupLights(); 
+        this._setupPostProcessing(); 
         this._handleResize();
+    }
+
+    // ... render 等其他方法保持不变 ...
+
+    // 🟢 关键修改：增加 async 和 await
+    async _addObjects(customText = null) {
+        this.tree = new Tree3D(this.scene);
+        await this.tree.init(customText); 
     }
 
     /**
@@ -283,9 +295,9 @@ export class SceneManager {
         this.composer.addPass(bloomPass);
     }
 
-    _addObjects() {
+    _addObjects(customText = null) {
         this.tree = new Tree3D(this.scene);
-        this.tree.init();
+        this.tree.init(customText);
     }
 
     _setupLights() {

@@ -768,3 +768,168 @@ body, html {
     to { transform: scale(1); opacity: 1; }
 }
 
+/* ======================== 金粉飘落特效 ======================== */
+.gold-dust-container {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none; /* 确保不影响点击按钮 */
+    overflow: hidden;
+    z-index: 2; /* 位于背景之上，卡片之下 */
+}
+
+.dust {
+    position: absolute;
+    background: radial-gradient(circle, #fff 0%, var(--gold) 70%, transparent 100%);
+    border-radius: 50%;
+    opacity: 0;
+    filter: blur(1px);
+    /* 每一个金粉的初始大小和位置 */
+    width: 25px; height: 25px;
+    top: -10%;
+    animation: dust-falling linear infinite;
+}
+
+/* 定义飘落规律 */
+@keyframes dust-falling {
+    0% { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
+    20% { opacity: 0.8; }
+    80% { opacity: 0.8; }
+    100% { transform: translateY(110vh) translateX(50px) scale(0.5); opacity: 0; }
+}
+
+/* 为每个金粉设置随机位置和速度 (利用简单的 nth-child) */
+.dust:nth-child(1) { left: 10%; animation-duration: 8s; animation-delay: 0s; }
+.dust:nth-child(2) { left: 25%; animation-duration: 12s; animation-delay: 2s; }
+.dust:nth-child(3) { left: 45%; animation-duration: 7s; animation-delay: 4s; }
+.dust:nth-child(4) { left: 65%; animation-duration: 15s; animation-delay: 1s; }
+.dust:nth-child(5) { left: 85%; animation-duration: 9s; animation-delay: 3s; }
+.dust:nth-child(6) { left: 15%; animation-duration: 11s; animation-delay: 5s; }
+.dust:nth-child(7) { left: 55%; animation-duration: 13s; animation-delay: 0.5s; }
+.dust:nth-child(8) { left: 75%; animation-duration: 6s; animation-delay: 2.5s; }
+.dust:nth-child(9) { left: 35%; animation-duration: 10s; animation-delay: 1.5s; }
+.dust:nth-child(10) { left: 95%; animation-duration: 14s; animation-delay: 4.5s; }
+
+
+/* style.css 末尾追加 */
+
+/* ============================ */
+/* 🌟 照片树专属：密度控制条样式 🌟 */
+/* ============================ */
+#density-slider-container {
+    position: fixed;
+    top: 150px; /* 位于顶部导航栏下方 */
+    left: 75%;
+    transform: translateX(-50%);
+    z-index: 1001; /* 确保在画布之上 */
+    
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    
+    padding: 12px 25px;
+    background: rgba(0, 0, 0, 0.4); /* 半透明黑底，突出金色 */
+    border: 1px solid rgba(255, 215, 0, 0.3); /* 微弱金边 */
+    border-radius: 20px;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    
+    /* 入场动画 */
+    animation: slideDownFade 0.6s ease-out;
+}
+
+.slider-label {
+    font-size: 14px;
+    color: var(--gold); /* 使用全局金色变量 */
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+}
+
+/* 自定义 Input Range 轨道 */
+#density-slider {
+    -webkit-appearance: none;
+    width: 180px;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.2); /* 默认未填充音色 */
+    outline: none;
+    cursor: pointer;
+    /* 通过 JS 动态修改 background 来实现填充进度条效果 */
+}
+
+/* 自定义滑块头 (Thumb) - Webkit (Chrome/Safari/Edge) */
+#density-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--gold); /* 金色滑块 */
+    box-shadow: 0 0 10px var(--gold), inset 0 0 5px rgba(255,255,255,0.8); /* 外发光+内高光 */
+    border: 2px solid #fff;
+    transition: transform 0.1s ease;
+}
+#density-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+}
+
+@keyframes slideDownFade {
+    from { opacity: 0; transform: translate(-50%, -20px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* style.css */
+
+/* style.css */
+
+#ar-blessing-display {
+    position: fixed;
+    /* 🟢 向右平移：从 60px 增加到 120px，使其更靠近树木中心 */
+    left: 120px; 
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1000;
+    pointer-events: none;
+    
+    /* 🟢 增大容器宽度，给大字体留出换行空间 */
+    max-width: 300px; 
+    text-align: left;
+}
+
+#ar-blessing-display span {
+    display: inline-block;
+    /* 🟢 字号调大：从 26px 提升至 36px，增强视觉冲击力 */
+    font-size: 36px; 
+    line-height: 1.3;
+    font-weight: bold;
+    color: #FFD700; /* 招牌金色 */
+    
+    /* 增强霓虹发光强度，适应更大的字号 */
+    text-shadow: 
+        0 0 15px rgba(255, 215, 0, 0.8),
+        0 0 30px rgba(255, 215, 0, 0.4);
+    
+    /* 优化背景板样式 */
+    background: rgba(0, 0, 0, 0.25);
+    padding: 20px 25px;
+    border-radius: 16px;
+    /* 加宽左侧金边，更有质感 */
+    border-left: 6px solid #FFD700; 
+
+    /* 呼吸动画保持 */
+    animation: blessingBreath 2.5s infinite ease-in-out;
+}
+
+@keyframes blessingBreath {
+    0%, 100% { 
+        opacity: 0.8; 
+        transform: scale(1);
+        filter: drop-shadow(0 0 5px var(--gold));
+    }
+    50% { 
+        opacity: 1; 
+        transform: scale(1.05);
+        filter: drop-shadow(0 0 15px var(--gold));
+    }
+}

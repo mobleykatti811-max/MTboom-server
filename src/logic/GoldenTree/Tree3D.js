@@ -33,7 +33,11 @@ export class Tree3D {
         };
     }
 
-    async init() {
+    async init(customText = null) {
+        if (customText) {
+            console.log("🎄 Tree3D: 收到定制祝福语 ->", customText);
+            this.params.textMessage = customText;
+        }
         console.log("🎄 Tree3D: 正在加载字体...");
         await this._loadFont();
         console.log("🎄 Tree3D: 字体加载完毕，开始计算表面采样...");
@@ -110,13 +114,45 @@ export class Tree3D {
         if (this.reflectionMesh) this.reflectionMesh.scale.setScalar(s);
     }
 
+    // Tree3D.js
     _loadFont() {
-        const loader = new FontLoader();
-        return new Promise((resolve) => {
-            loader.load('https://unpkg.com/three@0.147.0/examples/fonts/helvetiker_bold.typeface.json', (font) => {
+        return new Promise((resolve, reject) => {
+            const loader = new FontLoader();
+            
+            // 🟢 指向你刚生成的全量字体文件
+            const fontUrl = '/assets/fonts/font_full.json'; 
+            
+            // 找到 main.js 里的按钮，临时用来显示进度
+            const btn = document.querySelector('#start-btn');
+
+            console.log("🚀 开始下载全量中文字体 (约 10MB)...");
+
+            loader.load(fontUrl, (font) => {
+                console.log("✅ 全量字体加载完成！");
                 this.font = font;
                 resolve();
-            }, undefined, () => resolve()); 
+            }, 
+            // --- 进度回调 (关键) ---
+            (xhr) => {
+                // 计算百分比
+                if (xhr.total > 0) {
+                    const percent = (xhr.loaded / xhr.total * 100).toFixed(0);
+                    console.log(`字体加载: ${percent}%`);
+                    // 让按钮显示进度，安抚用户等待的焦虑
+                    if (btn) btn.textContent = `资源装载中 ${percent}%`;
+                } else {
+                    // 有些服务器不返回 total 大小，就显示下载字节数
+                    if (btn) btn.textContent = `资源装载中 ${(xhr.loaded/1024/1024).toFixed(1)}MB`;
+                }
+            },
+            (err) => {
+                console.error('❌ 字体加载失败:', err);
+                // 失败兜底：用默认英文，防止白屏
+                loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (f) => {
+                    this.font = f;
+                    resolve();
+                });
+            });
         });
     }
 

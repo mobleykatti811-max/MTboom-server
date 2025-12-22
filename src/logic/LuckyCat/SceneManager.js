@@ -185,7 +185,7 @@ export class SceneManager {
 
     async loadAndSpawnCats() {
         const loader = new GLTFLoader();
-        const modelUrl = new URL('./mao.glb', import.meta.url).href;
+        const modelUrl = new URL('/assets/3D/mao.glb', import.meta.url).href;
 
         return new Promise((resolve, reject) => {
             loader.load(modelUrl, (gltf) => {
