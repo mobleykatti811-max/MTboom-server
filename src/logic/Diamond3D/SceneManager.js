@@ -70,7 +70,8 @@ export class SceneManager {
 
         if (this.muyu) {
             // 分离速度设置和更新逻辑
-            const interactionSpeed = (this.stage === 1 && gestureData) ? gestureData.speed : 0;
+            // 只要有手势数据，就允许钻石旋转（提供即时反馈）   
+            const interactionSpeed = gestureData ? gestureData.speed : 0;   
             this.muyu.setInteraction(interactionSpeed);
             this.muyu.update(time, beatValue);
         }

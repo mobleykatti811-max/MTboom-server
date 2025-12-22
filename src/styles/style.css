@@ -42,17 +42,21 @@ body, html {
 .landing-title {
     font-size: 28px; font-weight: 800; margin-bottom: 40px;
     letter-spacing: 2px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
 }
 
+/* 🟢 核心重构：自适应网格布局 */
 #product-showcase {
-    display: flex; gap: 20px; justify-content: center;
-    width: 200%;
-    padding: 20px 10px;
-    margin-bottom: 30px;
-    /* overflow-x: auto; 
-    scroll-snap-type: x mandatory; */
-    /* 🟢 新增下面这 1 行 (允许自动换行) */
-    flex-wrap: wrap;
+    display: grid !important;
+    /* 自动计算：手机端一行两个，电脑端更多 */
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+    gap: 12px;
+    padding: 10px 15px 100px; /* 底部留白 100px 确保不被“点亮”按钮挡住 */
+    width: 100%;
+    max-height: 70vh; 
+    overflow-y: auto; 
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
 }
 
 .product-card {
@@ -153,66 +157,67 @@ body, html {
 
 /* ======================== 摄像头挂件 ======================== */
 .camera-widget {
-    position: absolute; top: 15px; right: 15px; z-index: 30;
-    transition: all 0.4s; pointer-events: auto;
-    width: 100px; height: 133px; 
+    position: absolute; 
+    top: 15px; 
+    right: 15px; 
+    z-index: 30;
+    transition: all 0.4s; 
+    pointer-events: auto;
+    
+    /* 📱 手机端：固定为精致的竖屏比例 */
+    width: 100px; 
+    height: 133px; 
+}
+
+/* 防止第一张卡片偏离：重置外边距 */
+.product-card {
+    margin: 0 !important;
+    width: auto !important;
+    flex: none !important;
 }
 
 /* =========================================
    💻 电脑/宽屏适配补丁 (最终修正版)
    ========================================= */
-@media screen and (min-width: 768px) {
-    /* 1. 外层面板：强制撑宽 */
-    #view-treasure .treasure-box-panel {
-        /* 宽度解锁：设为屏幕宽度的 70%，最大 1000px */
-        width: 70% !important;
-        max-width: 1000px !important; 
-        
-        /* 高度适中，居中显示 */
-        height: 75vh !important;
-        margin: auto !important; 
+/* style.css */
+
+/* 🟢 PC 端补丁：限制最大宽度，让布局更精致 */
+@media screen and (min-width: 1024px) {
+    .landing-content {
+        max-width: 900px !important; /* 增加整体宽度 */
     }
 
-    /* 2. 网格布局：锁定 3 列 */
-    #view-treasure .treasure-grid {
-        display: grid !important;
-        /* 核心：强制一行 3 个，1fr 会让它们自动拉伸填满宽度 */
-        grid-template-columns: repeat(3, 1fr) !important;
-        
-        /* 间距加大，填满大盒子 */
-        gap: 40px !important; 
+    #product-showcase {
+        /* 强制一行显示 4-5 个，不再无限拉伸 */
+        grid-template-columns: repeat(4, 1fr) !important; 
+        gap: 30px !important; /* 间距加大 */
         padding: 40px !important;
-        
-        /* 禁止横向滚动 */
-        overflow-x: hidden !important; 
+        max-height: 500px;
     }
 
-    /* 3. 图标和文字放大，显得大气 */
-    #view-treasure .t-icon { 
-        font-size: 60px !important; 
-        margin-bottom: 15px !important;
-    }
-    #view-treasure .t-name {
-        font-size: 16px !important;
+    .product-card {
+        height: 180px !important; /* 电脑端卡片高一点 */
+        background: rgba(255, 255, 255, 0.08) !important;
     }
 
-    /* 🟢 摄像头小窗：移除强制宽高，改为限制最大宽度 */
-    .camera-widget {
-        /* 设置一个基准宽度，比如 240px，高度由 JS 自动算 */
-        width: 240px !important; 
-        height: auto !important; /* 让高度自适应 */
-        
-        top: 20px !important;
-        right: 20px !important;
-        /* 保持原有的过渡效果 */
-        transition: all 0.3s ease;
+    /* 增加 PC 端独有的悬浮发光感 */
+    .product-card:hover {
+        background: rgba(212, 175, 55, 0.15) !important;
+        transform: translateY(-10px);
+        box-shadow: 0 10px 30px rgba(212, 175, 55, 0.2);
     }
 }
 
 #ar-camera-feed {
-    width: 100%; height: 100%; object-fit: cover; border-radius: 12px;
-    border: 2px solid var(--gold); background: #000;
-    transform: scaleX(-1); box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    width: 100%; 
+    height: 100%; 
+    /* 🟢 关键：使用 cover 确保画面填满 100x133，不留黑边 */
+    object-fit: cover; 
+    border-radius: 12px;
+    border: 2px solid var(--gold); 
+    background: #000;
+    transform: scaleX(-1); 
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
 }
 
 .camera-toggle-btn {
@@ -319,7 +324,7 @@ body, html {
     background: linear-gradient(to bottom, #d4a017 0%, #8a6e0b 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    text-shadow: none; /* 去掉发光，增加在浅色背景上的清晰度 */
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important; /* 👈 改这里 */
 }
 
 /* 3. 卡片改成“磨砂白”风格 */
@@ -332,7 +337,8 @@ body, html {
 
 /* 4. 卡片文字颜色变深 */
 .product-card p {
-    color: #555; 
+    color: #000; 
+    font-weight: 900 !important;
 }
 
 /* 5. 选中卡片样式加强 */
@@ -495,6 +501,17 @@ body, html {
    💻 电脑/宽屏适配补丁 (修复背包过窄问题)
    ========================================= */
 @media (min-width: 768px) {
+
+    .camera-widget {
+        /* 电脑端：宽度变大，高度根据画面比例自动撑开(横屏) */
+        width: 240px !important; 
+        height: auto !important; 
+        
+        top: 20px !important;
+        right: 20px !important;
+        transition: all 0.3s ease;
+    }
+
     .treasure-box-panel {
         /* 宽度加倍，从 400px 改为 800px */
         max-width: 800px !important; 

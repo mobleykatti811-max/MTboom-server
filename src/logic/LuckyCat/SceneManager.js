@@ -24,6 +24,11 @@ export class SceneManager {
         const { width, height } = this.canvas.getBoundingClientRect();
         
         this.scene = new THREE.Scene();
+
+        // >>> ✅ [修改点] 引用背景图片，保持与 public 目录一致的路径 <<<
+        const textureLoader = new THREE.TextureLoader();
+        this.scene.background = textureLoader.load('/assets/images/cat_1background.png');
+
         this.scene.fog = new THREE.FogExp2(0x000000, 0.02);
 
         this.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
@@ -136,9 +141,9 @@ export class SceneManager {
         container.appendChild(sizeDiv);
         // 改用 canvas 的父元素，这样它会随着 AR 视图一起被隐藏/移除
         if (this.canvas.parentElement) {
-        this.canvas.parentElement.appendChild(container);
-    }    
-}
+            this.canvas.parentElement.appendChild(container);
+        }    
+    }
 
     // >>> 新增：动态调整猫咪数量 <<<
     updateCatCount(newCount) {
@@ -205,6 +210,15 @@ export class SceneManager {
             }, undefined, reject);
         });
     }
+
+    // 原有方法保留（虽然 init 中已实现，但根据“不删东西”原则保留）
+    _setupScene() {
+        this.scene = new THREE.Scene();
+        const textureLoader = new THREE.TextureLoader();
+        this.scene.background = textureLoader.load('/assets/images/cat_background.png');
+        this.scene.fog = new THREE.FogExp2(0xfffdf5, 0.02);
+    }
+
 
     createWarmAtmosphere() {
         const geometry = new THREE.SphereGeometry(60, 32, 32);

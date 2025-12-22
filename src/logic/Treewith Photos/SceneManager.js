@@ -27,11 +27,6 @@ export class SceneManager {
     this.camera = new THREE.PerspectiveCamera(60, this.width / this.height, 0.1, 1000);
     this.camera.position.set(0, 2, 22); 
 
-    // 🟢 最小修改：添加音频监听器和音乐对象
-    this.listener = new THREE.AudioListener();
-    this.camera.add(this.listener);
-    this.bgMusic = new THREE.Audio(this.listener);
-
     this.tree = new TreeWithPhotos(this.scene);
     // ... 后续逻辑不变 ...
     this.composer = null;
@@ -68,17 +63,6 @@ export class SceneManager {
     if (blessing) {
         this._createBlessingUI(blessing);
     }
-    // SceneManager.js -> init 方法末尾
-    // 🟢 最小修改：加载并启动背景音乐
-    const audioLoader = new THREE.AudioLoader();
-    // 路径对应你的 public/assets/audio/ 目录
-    audioLoader.load('/assets/audio/Merry%20Christmas%20Ident.mp3', (buffer) => {
-        this.bgMusic.setBuffer(buffer);
-        this.bgMusic.setLoop(true);     // 循环播放
-        this.bgMusic.setVolume(0.4);    // 音量设为 0.4，避免盖过交互音效
-        this.bgMusic.play();
-        console.log("🎵 背景音乐已启动");
-    });
   }
 
   render(gestureData, beatValue = 0) {
@@ -97,11 +81,6 @@ export class SceneManager {
   dispose() {
       console.log("🧹 照片树资源清理中...");
       this._removeDensitySlider();
-
-      // 🟢 最小修改：停止并卸载音乐
-      if (this.bgMusic && this.bgMusic.isPlaying) {
-          this.bgMusic.stop();
-      }
       
       // 🟢 最小修改：清理祝福语 UI
       if (this.blessingUI) {

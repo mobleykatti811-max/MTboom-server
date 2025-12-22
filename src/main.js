@@ -1,6 +1,16 @@
 let uploadedPhotos = []; // 存储压缩后的 Base64 数组
+let currentSceneBgm = null; // 🟢 [新增] 全局单例：当前场景的 BGM 对象
 import { apiClient } from './logic/apiClient.js';
 import { CameraManager } from './logic/CameraManager.js'; // 🟢 新增引入
+
+// main.js 顶部
+window.addEventListener('click', () => {
+    const landingAudio = document.getElementById('bgm-landing');
+    if (landingAudio && landingAudio.paused) {
+        landingAudio.volume = 0.5;
+        landingAudio.play();
+    }
+}, { once: true }); // 只触发一次
 
 // ===================================
 // 1. 全局变量与配置
@@ -23,18 +33,20 @@ const SCENE_MODULES = {
     'PhotoTree':  { scene: () => import('./logic/Treewith Photos/SceneManager.js'), tracker: () => import('./logic/Treewith Photos/HandTracker.js') }
 };
 
-// 1. 修改配置：增加 badge 字段
+// 1. 修改配置：注入下沉市场暴富逻辑
 const PRODUCT_CONFIG = {
     // ✅ 新增 PhotoTree 配置
     PhotoTree: { 
         key: 'PhotoTree', 
-        type: 'CUSTOM',       // 设定为付费产品（如果是免费改成 'CUSTOM'，价格改成 0）
-        price: 0,         // 价格
+        type: 'CUSTOM',       // 设定为付费产品
+        price: 0,             // 价格
         title: '📸 圣诞照片墙', 
         btnText: '点亮回忆', 
         iconEmoji: '📸', 
-        badge: '✨ 节日',    // B. 适配文件1的角标逻辑
-        badgeClass: 'premium', // 🟢 样式类名 (premium/hot/trial)
+        badge: '✨ 节日',      // B. 适配文件1的角标逻辑
+        badgeClass: 'premium', // 🟢 样式类名
+        bgm: '/assets/audio/Merry Christmas Ident.mp3', 
+        bgStyle: 'radial-gradient(circle, #09121d 0%, #000000 100%)',
         guides: [
             { icon: '👋', text: '挥手 → 旋转浏览' }, 
             { icon: '✊', text: '握拳 → 放大查看' }
@@ -47,8 +59,8 @@ const PRODUCT_CONFIG = {
         title: '🎄 许愿指南', 
         btnText: '召唤金树', 
         iconEmoji: '🎄', 
-        badge: '🎁 送礼', // B. 新增角标
-        badgeClass: 'premium', // 🟢 新增：指定金色样式
+        badge: '🎁 送礼', 
+        badgeClass: 'premium', 
         guides: [{ icon: '✊', text: '握拳 → 变小' }, { icon: '🖐️', text: '张开 → 变大' }] 
     },
     WoodenFish: { 
@@ -58,23 +70,47 @@ const PRODUCT_CONFIG = {
         title: '🐹 功德指南', 
         btnText: '开始积德', 
         iconEmoji: '🐟', 
-        badge: '🔥 热门', // B. 新增角标
-        badgeClass: 'hot', // 🟢 新增：指定红色样式
+        badge: '🔥 热门', 
+        badgeClass: 'hot', 
+        bgm: '/assets/audio/temple.m4a',
+        bgStyle: '#000', 
         guides: [{ icon: '👋', text: '挥手 → 敲击' }, { icon: '🙏', text: '合十 → 爆发' }] 
     },
+
+    // ⚡ [重点修改] 鬼畜至尊：适配最新的暴富战神与下沉视觉逻辑
     CrazyCrit: { 
         key: 'CrazyCrit', 
-        type: 'PAID', 
+        type: 'FREE', 
         price: 9.9, 
-        title: '🔥 鬼畜至尊', 
-        btnText: '开始攻沙', 
+        title: '🔥 鬼畜战神 (暴富版)', 
+        btnText: '一刀 999', 
         iconEmoji: '🗡️', 
-        badge: '⚡ 试玩', // B. 新增角标
-        badgeClass: 'trial', // 🟢 新增：指定紫色样式
-        guides: [{ icon: '🤏', text: '待机 → 探测' }, { icon: '🖐️', text: '挥手 → 暴击' }] 
+        badge: '💰 财运', 
+        badgeClass: 'hot', 
+        // 🟢 [新增] 选用最土、最震撼的高频背景音 (请确保对应路径下有此文件或自行指定)
+        bgm: '/assets/audio/crazy_rich_vibe.mp3', 
+        // 🟢 [新增] 极度压抑转爆发的暗红色背景，配合 SceneManager 的反色效果
+        bgStyle: 'radial-gradient(circle at center, #500000 0%, #000000 100%)',
+        guides: [
+            { icon: '👋', text: '持续挥手 → 疯狂爆率' }, 
+            { icon: '🧘', text: '保持待机 → 自动吸金' }
+        ] 
     },
-    // 其他产品保持原样，也可以加 badge
-    LuckyCat:   { key: 'LuckyCat',   type:'FREE', price:0, title: '🐱 招财进宝', btnText: '召唤财神', iconEmoji: '🧧', guides: [{ icon: '🎵', text: '音乐 → 律动' }, { icon: '👋', text: '挥手 → 招手' }] },
+    
+     LuckyCat: { 
+        key: 'LuckyCat',   
+        type: 'FREE', 
+        price: 0, 
+        title: '🐱 招财进宝', 
+        btnText: '召唤财神', 
+        iconEmoji: '🧧', 
+        badge: '🔥 热门',
+        badgeClass: 'hot',
+        bgm: '/assets/audio/Lucky_Cat_Vibe.mp3', 
+        bgStyle: 'radial-gradient(circle at center, #ffd700 0%, #ff8c00 40%, #d92418 100%)',
+        guides: [{ icon: '🎵', text: '音乐 → 律动' }, { icon: '👋', text: '张手 → 冲刺' }] 
+    },
+
     Diamond3D:  { key: 'Diamond3D',  type:'FREE', price:0, title: '💎 精灵宝钻', btnText: '唤醒宝石', iconEmoji: '💎', guides: [{ icon: '👋', text: '挥手 → 唤醒' }, { icon: '❤️', text: '比心 → 许愿' }] },
     LuckyDog:   { key: 'LuckyDog',   type:'FREE', price:0, title: '🐶 旺财招福', btnText: '召唤旺财', iconEmoji: '🦴', guides: [{ icon: '🎵', text: '音乐 → Q弹' }, { icon: '👋', text: '挥手 → 摇尾' }] },
 };
@@ -344,36 +380,85 @@ function updateGuideUI(config) {
 // ===================================
 // 4. 渲染循环
 // ===================================
+// main.js 约 395 行左右
 function tick() {
+    // 🟢 核心修复：如果环境被清理，立即停止循环，防止回到首页后卡顿
+    if (!handTracker || !sceneManager) {
+        animationFrameId = null;
+        return; 
+    }
+
     animationFrameId = requestAnimationFrame(tick);
-    if (handTracker && sceneManager) {
+
+    const video = document.getElementById('ar-camera-feed');
+    // 🟢 门卫检查：视频未就绪（宽高为0）时跳过检测，防止 ROI 报错崩溃
+    if (!video || video.videoWidth === 0 || video.readyState < 2) return; 
+
+    try {
         const gesture = handTracker.detect();
         const beat = getAudioBeat();
         sceneManager.render(gesture, beat);
+    } catch (err) {
+        console.warn("手势检测跳帧中...");
     }
 }
 
 // ===================================
 // 5. 音频与后台
-// ===================================
+// ====================================
+
 function setupAudioSystem() {
+    // 1. 🟢 进新场景前，先杀掉旧音乐 (解决 BGM 叠加大杂烩的问题)
+    stopSceneBgm();
+
     try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (audioContext) audioContext.close();
-        audioContext = new AudioContext();
+        if (!audioContext) audioContext = new AudioContext();
+
+        // 2. 🟢 从配置读取 BGM (解决“千篇一律”的问题)
+        const config = PRODUCT_CONFIG[currentProductKey];
+        // 默认兜底音乐 (如果配置里没写 bgm)
+        const bgmUrl = config.bgm || 'https://cdn.pixabay.com/audio/2022/03/15/audio_73147d3467.mp3';
+
+        console.log(`🎵 正在加载场景音乐: ${bgmUrl}`);
+
+        // 3. 🟢 创建新的 Audio 对象并赋值给全局变量
+        currentSceneBgm = new Audio(bgmUrl);
+        currentSceneBgm.loop = true;
+        currentSceneBgm.crossOrigin = "anonymous";
         
-        const audioEl = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_73147d3467.mp3'); 
-        audioEl.crossOrigin = "anonymous"; 
-        audioEl.loop = true;
-        audioEl.play().catch(() => console.warn("等待交互播放")); 
+        // 4. 🟢 同步静音状态 (解决“进场景声音关不掉”的问题)
+        // 检查左上角按钮当前是不是红色的静音状态
+        const isMuted = document.getElementById('audio-btn')?.classList.contains('muted');
+        currentSceneBgm.muted = isMuted;
+
+        // 5. 播放
+        currentSceneBgm.play().catch(e => console.warn("等待交互播放", e));
+
+        // 6. 连接分析器 (Visualizer)
+        if (analyser) { 
+            try { analyser.disconnect(); } catch(e){} 
+        }
         
-        const source = audioContext.createMediaElementSource(audioEl);
+        const source = audioContext.createMediaElementSource(currentSceneBgm);
         analyser = audioContext.createAnalyser();
-        analyser.fftSize = 64; 
+        analyser.fftSize = 64;
         source.connect(analyser);
         analyser.connect(audioContext.destination);
         dataArray = new Uint8Array(analyser.frequencyBinCount);
-    } catch (e) { console.warn("Audio Error:", e); }
+
+    } catch (e) {
+        console.warn("Audio Error:", e);
+    }
+}
+
+// 🟢 [新增] 停止音乐的工具函数
+function stopSceneBgm() {
+    if (currentSceneBgm) {
+        currentSceneBgm.pause();
+        currentSceneBgm.currentTime = 0;
+        currentSceneBgm = null; // 销毁引用，彻底释放
+    }
 }
 
 function getAudioBeat() {
@@ -396,11 +481,19 @@ if (homeBtn) {
     homeBtn.onclick = backToHome;
 }
 
+// main.js -> backToHome
+
 function backToHome() {
     console.log("🏠 返回橱窗");
     CameraManager.stop();
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
     
+    // 🟢 [新增] 停止场景音乐
+    stopSceneBgm();
+    
+    // 🟢 [新增] 复原背景 (清除招财猫/圣诞树的特殊背景，变回默认黑底)
+    document.body.style.background = ''; 
+
     // --- 新增：清除试玩倒计时 ---
     if (trialTimer) {
         clearInterval(trialTimer);
@@ -408,14 +501,21 @@ function backToHome() {
     }
 
     // 清理实例
-    if (handTracker) handTracker = null; 
+    if (handTracker) {
+            if (typeof handTracker.stop === 'function') handTracker.stop(); // 强力关闭摄像头和红条状态栏
+            handTracker = null; 
+    }
+
     if (sceneManager) {
         if (typeof sceneManager.dispose === 'function') sceneManager.dispose(); 
         sceneManager = null; 
     }
+    
     if (audioContext) {
-        audioContext.close();
-        audioContext = null;
+        // audioContext 一般不 close，suspend 即可，或者保持开启供下次使用
+        // 这里可以保持原样，或者注释掉 close
+        // audioContext.close(); 
+        // audioContext = null;
     }
 
     document.getElementById('view-ar').classList.remove('active');
@@ -428,27 +528,51 @@ function backToHome() {
         btn.disabled = false;
         updateStartBtnText(btn);
     }
-
-    // 在 main.js 的 backToHome 函数里：
-    if (sceneManager) {
-        if (typeof sceneManager.dispose === 'function') {
-            sceneManager.dispose(); // ✅ 这里调用清理 UI
-        }
-        sceneManager = null;
+    
+    // 🟢 [新增] 恢复主页引流音乐
+    const landingAudio = document.getElementById('bgm-landing');
+    if (landingAudio) {
+        // 继承当前的静音设置
+        const isMuted = document.getElementById('audio-btn')?.classList.contains('muted');
+        landingAudio.muted = isMuted;
+        landingAudio.play().catch(e=>{});
     }
 }
 
 // ===================================
 // 7. 辅助功能：声音 & 隐私
 // ===================================
+// ===================================
+// 7. 辅助功能 (重构版)
+// ===================================
+
 function initAudioControl() {
     const audioBtn = document.getElementById('audio-btn');
     if(!audioBtn) return;
+    
+    // 默认状态
     let isMuted = false;
+
     audioBtn.onclick = () => {
         isMuted = !isMuted;
         audioBtn.textContent = isMuted ? '🔇 静音' : '🔊 声音';
         audioBtn.classList.toggle('muted', isMuted);
+
+        // 1. 🟢 核心修复：精准控制当前场景的内存音频对象
+        if (currentSceneBgm) {
+            currentSceneBgm.muted = isMuted;
+        }
+
+        // 2. 🟢 精准控制首页引流音乐 (由于 HTML 补全了，现在能找到了)
+        const landingAudioTag = document.getElementById('bgm-landing');
+        if (landingAudioTag) {
+            landingAudioTag.muted = isMuted;
+        };
+        
+        // 3. 兜底：控制页面上所有 Audio 标签
+        document.querySelectorAll('audio').forEach(el => el.muted = isMuted);
+
+        // 4. 控制 Web Audio API (暂停分析器，省电)
         if(audioContext) {
             isMuted ? audioContext.suspend() : audioContext.resume();
         }

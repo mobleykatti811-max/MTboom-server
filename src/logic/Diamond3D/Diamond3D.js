@@ -83,7 +83,7 @@ export class Diamond3D {
     }
 
     setInteraction(rotateSpeed, scaleFactor = 1) {
-        this.targetRotation = rotateSpeed * 0.1; 
+        this.targetRotation = rotateSpeed * 0.01;
     }
 
     setTheme(themeKey) {

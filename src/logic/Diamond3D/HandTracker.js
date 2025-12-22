@@ -170,7 +170,7 @@ export class HandTracker {
             const dy = currentY - this.lastPos.y;
             const dist = Math.sqrt(dx*dx + dy*dy);
             
-            let rawSpeedX = (dx / dt) * 3000;
+            let rawSpeedX = (dx / dt) * 800;
             if (dist < 0.025) rawSpeedX = 0; // 死区
 
             this.lastPos = { x: currentX, y: currentY, time: now };
