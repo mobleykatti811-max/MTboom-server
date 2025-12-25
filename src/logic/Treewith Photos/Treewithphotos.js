@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 /**
- * TreeWithPhotos - 密度增强与随机分布修复版
+ * TreeWithPhotos - 修复照片灰暗问题版
  */
 export class TreeWithPhotos {
     constructor(scene) {
@@ -13,9 +13,9 @@ export class TreeWithPhotos {
         this.balls = null;
         this.particleData = []; 
         
-        // 🟢 密度控制核心变量
-        this.maxCount = 20000;     // 最大粒子基数（解决单薄问题）
-        this.currentCount = 10000;  // 默认显示数量
+        // 密度控制变量
+        this.maxCount = 20000;     
+        this.currentCount = 10000;  
         
         this.highlightedIndex = -1; 
         this.isInteracting = false; 
@@ -23,25 +23,25 @@ export class TreeWithPhotos {
         this.minDisplayDuration = 1.5; 
         this.cooldownEndTime = 0;
         
-        this.dissolveSystem = null;     
-        this.dissolveTargetIndex = -1;  
-        this.dissolveProgress = 0;      
-        this.dissolveVelocities = []; 
+        // 活动队列，支持多个爆开效果并行
+        this.activeDissolves = []; 
+
+        // 为了兼容性保留旧变量名
+        this.dissolveTargetIndex = -1; 
 
         this.photoTextures = []; 
         this.textureLoader = new THREE.TextureLoader();
     }
 
-    // 🟢 新增：供滑块调用的接口
+    // 供滑块调用的接口
     updateDensity(factor) {
         if (!this.balls) return;
         this.currentCount = Math.floor(this.maxCount * factor);
-        // 核心：直接修改 InstancedMesh 的渲染计数
         this.balls.count = this.currentCount;
     }
 
     async init(photoUrls = null, blessing = null) {
-        this.blessing = blessing; // 🟢 存一下即可
+        this.blessing = blessing; 
         if (photoUrls && photoUrls.length > 0) {
             for (const url of photoUrls) {
                 try {
@@ -60,7 +60,6 @@ export class TreeWithPhotos {
     }
 
     _createParticleTree() {
-        // 使用最大基数创建
         const count = this.maxCount;
         const geo = new THREE.IcosahedronGeometry(0.1, 0); 
         const mat = new THREE.MeshStandardMaterial({
@@ -75,7 +74,6 @@ export class TreeWithPhotos {
         const treeHeight = 17; 
         const baseRadius = 8.5;  
         
-        // 1. 🟢 预生成所有粒子的数据
         const rawParticles = [];
         for (let i = 0; i < count; i++) {
             const yRatio = Math.pow(Math.random(), 1.2); 
@@ -83,9 +81,7 @@ export class TreeWithPhotos {
             const maxRadiusAtY = baseRadius * (1 - yRatio);
             const r = maxRadiusAtY * Math.sqrt(Math.random()) * 0.95; 
             const angle = Math.random() * Math.PI * 2;
-            
-            const scaleBase = Math.random();
-            const scale = Math.pow(scaleBase, 2.5) * 1.6 + 0.25;
+            const scale = Math.pow(Math.random(), 2.5) * 1.6 + 0.25;
 
             const seed = Math.random();
             let colorHex = 0x000000;
@@ -93,29 +89,21 @@ export class TreeWithPhotos {
             if (seed > 0.94) { colorHex = 0xfffee0; type = 3; } 
             else if (seed > 0.82) { colorHex = 0xffaa00; type = 2; } 
             else if (seed > 0.70) { colorHex = 0xd41111; type = 1; } 
-            else { type = 0; } // 绿色部分由下面的 HSL 逻辑处理
 
             rawParticles.push({
                 pos: new THREE.Vector3(Math.cos(angle) * r, y, Math.sin(angle) * r),
                 rot: new THREE.Vector3(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI),
-                scale: scale,
-                colorHex: colorHex,
-                type: type,
-                speedOffset: Math.random() * 0.5 + 0.5
+                scale: scale, colorHex: colorHex, type: type, speedOffset: Math.random() * 0.5 + 0.5
             });
         }
 
-        // 2. 🟢 关键：洗牌算法（Shuffle）打乱顺序
-        // 这样当我们设置 balls.count 时，消失的是随机分布的粒子，而不是从树顶向下消失
         for (let i = rawParticles.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [rawParticles[i], rawParticles[j]] = [rawParticles[j], rawParticles[i]];
         }
 
-        // 3. 应用数据到 InstancedMesh
         const color = new THREE.Color();
         this.particleData = [];
-
         rawParticles.forEach((data, i) => {
             dummy.position.copy(data.pos);
             dummy.rotation.set(data.rot.x, data.rot.y, data.rot.z);
@@ -124,73 +112,57 @@ export class TreeWithPhotos {
             this.balls.setMatrixAt(i, dummy.matrix);
 
             if (data.type === 0) {
-                const greenHue = 0.25 + Math.random() * 0.15; 
-                const lightness = 0.05 + Math.random() * 0.2; 
-                color.setHSL(greenHue, 0.6, lightness);
+                color.setHSL(0.25 + Math.random() * 0.15, 0.6, 0.05 + Math.random() * 0.2);
             } else {
                 color.setHex(data.colorHex);
             }
             this.balls.setColorAt(i, color);
-
             const hsl = {}; color.getHSL(hsl);
-            this.particleData.push({
-                h: hsl.h, s: hsl.s, l: hsl.l, type: data.type, speedOffset: data.speedOffset
-            });
+            this.particleData.push({ h: hsl.h, s: hsl.s, l: hsl.l, type: data.type, speedOffset: data.speedOffset });
         });
 
-        // 4. 设置初始显示密度
         this.balls.count = this.currentCount;
-        
         this.balls.instanceMatrix.needsUpdate = true;
         this.balls.instanceColor.needsUpdate = true;
         this.group.add(this.balls);
     }
 
-// Treewithphotos.js -> update 方法
-
-// Treewithphotos.js
-
-update(time, beat, gesture) {
-    // --- A. 旋转逻辑 ---
-    if (this.highlightedIndex === -1 && this.dissolveTargetIndex === -1) {
-        let rotationStep = 0.002; 
-        if (gesture && gesture.speed) rotationStep += gesture.speed * 0.0005;
-        this.group.rotation.y += rotationStep;
-    }
-
-    // --- B. 交互逻辑 (核心修改) ---
-    const inCooldown = (time < this.cooldownEndTime);
-    
-    // 🟢 最小修改：判定握拳为“张开度小于 0.25”
-    const isGrabbing = gesture && gesture.isGrabbing;
-
-    if (isGrabbing && !inCooldown) {
-        if (!this.isInteracting) {
-            this.isInteracting = true; 
-            if (this._toggleHighlight()) this.lockStartTime = time;
+    update(time, beat, gesture) {
+        // A. 旋转逻辑
+        if (this.highlightedIndex === -1 && this.activeDissolves.length === 0) {
+            let rotationStep = 0.002; 
+            if (gesture && gesture.speed) rotationStep += gesture.speed * 0.0005;
+            this.group.rotation.y += rotationStep;
         }
-    } else if (this.isInteracting) {
-       // 只有展示时间满 1.5s 且手松开了（isGrabbing 变回 false）才消失
-        if (time - this.lockStartTime > this.minDisplayDuration) {
-            this.isInteracting = false;
-            if (this.highlightedIndex !== -1) {
-                this._triggerDissolve(this.highlightedIndex, time);
+
+        // B. 交互逻辑
+        const inCooldown = (time < this.cooldownEndTime);
+        const isGrabbing = gesture && gesture.isGrabbing;
+
+        if (isGrabbing && !inCooldown) {
+            if (!this.isInteracting) {
+                this.isInteracting = true; 
+                if (this._toggleHighlight()) this.lockStartTime = time;
+            }
+        } else if (this.isInteracting) {
+            if (time - this.lockStartTime > this.minDisplayDuration) {
+                this.isInteracting = false;
+                if (this.highlightedIndex !== -1) {
+                    this._triggerDissolve(this.highlightedIndex, time);
+                }
             }
         }
-    }
 
-    this._animateTree(time, beat, this.group.rotation.y);
-    this._animateCards(time);
-    this._updateDissolve(time);
-}
+        this._animateTree(time, beat, this.group.rotation.y);
+        this._animateCards(time);
+        this._updateDissolve(time);
+    }
 
     _animateTree(time, beat, currentRotation) {
         if (!this.balls) return;
-        const s = 1.0 + beat * 0.02;
-        this.balls.scale.setScalar(s);
+        this.balls.scale.setScalar(1.0 + beat * 0.02);
         const hueShiftFactor = currentRotation * 0.1;
         const tempColor = new THREE.Color();
-        // 🟢 注意：只循环当前显示的 count 即可
         for (let i = 0; i < this.balls.count; i++) {
             const data = this.particleData[i];
             let newH = data.h;
@@ -201,14 +173,15 @@ update(time, beat, gesture) {
         this.balls.instanceColor.needsUpdate = true;
     }
 
-    // ... 保持原有 _toggleHighlight, _triggerDissolve, _finishDissolve, _createDissolveParticles, _updateDissolve, _addStar, _createPhotoSpiral, _animateCards, _createPlaceholderTexture 逻辑完全不变 ...
-    
     _toggleHighlight() {
         if (this.highlightedIndex !== -1) return false;
         let bestIdx = -1; let maxZ = -99999;
         const worldPos = new THREE.Vector3();
+        
+        const dissolvingIndices = this.activeDissolves.map(d => d.targetIndex);
+
         this.cards.forEach((card, idx) => {
-            if (idx === this.dissolveTargetIndex) return;
+            if (dissolvingIndices.includes(idx)) return;
             card.mesh.getWorldPosition(worldPos);
             if (worldPos.z > maxZ) { maxZ = worldPos.z; bestIdx = idx; }
         });
@@ -219,17 +192,25 @@ update(time, beat, gesture) {
     _triggerDissolve(index, currentTime) {
         const card = this.cards[index];
         card.mesh.visible = false;
-        this._createDissolveParticles(card.mesh.position.clone(), card.mesh.rotation.clone());
-        this.dissolveTargetIndex = index;
+        
+        const { system, velocities } = this._createDissolveParticles(card.mesh.position.clone(), card.mesh.rotation.clone());
+        
+        this.activeDissolves.push({
+            system: system,
+            velocities: velocities,
+            targetIndex: index,
+            progress: 0,
+            startWorld: system.position.clone()
+        });
+
         this.highlightedIndex = -1; 
-        this.dissolveProgress = 0;
     }
 
     _createDissolveParticles(pos, rot) {
         const particleCount = 1800; 
         const geo = new THREE.BufferGeometry();
         const positions = [];
-        this.dissolveVelocities = [];
+        const velocities = []; 
         const vec = new THREE.Vector3();
         const euler = new THREE.Euler(rot.x, rot.y, rot.z);
         for(let i=0; i<particleCount; i++) {
@@ -240,34 +221,38 @@ update(time, beat, gesture) {
             positions.push(vec.x, vec.y, vec.z);
             const explodeDir = new THREE.Vector3((Math.random()-0.5), (Math.random()-0.5), (Math.random()-0.5)).normalize();
             const speed = Math.random() * 1.2 + 0.3; 
-            this.dissolveVelocities.push({ x: explodeDir.x*speed, y: explodeDir.y*speed, z: explodeDir.z*speed, offsetX: vec.x, offsetY: vec.y, offsetZ: vec.z });
+            velocities.push({ x: explodeDir.x*speed, y: explodeDir.y*speed, z: explodeDir.z*speed, offsetX: vec.x, offsetY: vec.y, offsetZ: vec.z });
         }
         geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
         const mat = new THREE.PointsMaterial({ color: 0xffd700, size: 0.07, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
-        this.dissolveSystem = new THREE.Points(geo, mat);
-        this.dissolveSystem.position.copy(pos);
-        this.dissolveSystem.scale.set(3.5, 3.5, 3.5); 
-        this.group.add(this.dissolveSystem);
+        const system = new THREE.Points(geo, mat);
+        system.position.copy(pos);
+        system.scale.set(3.5, 3.5, 3.5); 
+        this.group.add(system);
+        
+        return { system, velocities };
     }
 
     _updateDissolve(time) {
-            if (this.dissolveTargetIndex === -1 || !this.dissolveSystem) return;
-            this.dissolveProgress += 0.006; 
-            const card = this.cards[this.dissolveTargetIndex];
+        for (let i = this.activeDissolves.length - 1; i >= 0; i--) {
+            const d = this.activeDissolves[i];
+            d.progress += 0.006; 
+            
+            const card = this.cards[d.targetIndex];
             const targetPos = card.basePos; 
-            const startWorld = this.dissolveSystem.position; 
-            const positions = this.dissolveSystem.geometry.attributes.position;
+            const startWorld = d.startWorld; 
+            const positions = d.system.geometry.attributes.position;
             const explodePhaseRatio = 0.25;
             
             let explosionStrength = 0; 
             let moveRatio = 0; 
             let scaleRatio = 3.5;      
 
-            if (this.dissolveProgress < explodePhaseRatio) {
-                const t = this.dissolveProgress / explodePhaseRatio;
+            if (d.progress < explodePhaseRatio) {
+                const t = d.progress / explodePhaseRatio;
                 explosionStrength = Math.sin(t * Math.PI / 2) * 1.5; 
             } else {
-                const t = (this.dissolveProgress - explodePhaseRatio) / (1 - explodePhaseRatio);
+                const t = (d.progress - explodePhaseRatio) / (1 - explodePhaseRatio);
                 const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
                 explosionStrength = 1.5 * (1 - ease); 
                 moveRatio = ease;
@@ -277,46 +262,40 @@ update(time, beat, gesture) {
             const currentCenter = new THREE.Vector3().lerpVectors(startWorld, targetPos, moveRatio);
             const localCenter = currentCenter.clone().sub(startWorld);
 
-            for (let i = 0; i < positions.count; i++) {
-                const vel = this.dissolveVelocities[i];
-
-                // 🟢 核心修复：定义 Z 轴所需的变量
+            for (let j = 0; j < positions.count; j++) {
+                const vel = d.velocities[j];
                 const baseX = vel.offsetX * (scaleRatio / 3.5);
                 const baseY = vel.offsetY * (scaleRatio / 3.5);
                 const baseZ = vel.offsetZ * (scaleRatio / 3.5); 
-
                 const burstX = vel.x * explosionStrength;
                 const burstY = vel.y * explosionStrength;
                 const burstZ = vel.z * explosionStrength; 
 
-                // 🟢 核心修复：应用所有轴的位移
-                positions.setXYZ(
-                    i, 
-                    localCenter.x + baseX + burstX, 
-                    localCenter.y + baseY + burstY, 
-                    localCenter.z + baseZ + burstZ 
-                );
+                positions.setXYZ(j, localCenter.x + baseX + burstX, localCenter.y + baseY + burstY, localCenter.z + baseZ + burstZ);
             }
             
             positions.needsUpdate = true;
-            if (this.dissolveProgress >= 1.0) this._finishDissolve(time);
+            
+            if (d.progress >= 1.0) {
+                this._finishDissolveInstance(d, time);
+                this.activeDissolves.splice(i, 1);
+            }
         }
+    }
 
-    _finishDissolve(currentTime) {
-        if (this.dissolveSystem) {
-            this.group.remove(this.dissolveSystem);
-            this.dissolveSystem.geometry.dispose();
-            this.dissolveSystem.material.dispose();
-            this.dissolveSystem = null;
-        }
-        const card = this.cards[this.dissolveTargetIndex];
+    _finishDissolveInstance(d, currentTime) {
+        this.group.remove(d.system);
+        d.system.geometry.dispose();
+        d.system.material.dispose();
+        
+        const card = this.cards[d.targetIndex];
         card.mesh.visible = true;
         card.mesh.position.copy(card.basePos);
         card.mesh.rotation.copy(card.baseQuat);
         card.mesh.scale.set(1, 1, 1);
         card.mesh.material.depthTest = true;
         card.mesh.renderOrder = 0;
-        this.dissolveTargetIndex = -1;
+        
         this.cooldownEndTime = currentTime + 0.8; 
     }
 
@@ -342,7 +321,12 @@ update(time, beat, gesture) {
         const treeHeight = 17; const baseRadius = 9.0; 
         for (let i = 0; i < photoCount; i++) {
             let currentTexture = this.photoTextures.length > 0 ? this.photoTextures[i % this.photoTextures.length] : this._createPlaceholderTexture();
-            const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ map: currentTexture }));
+            const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ 
+                map: currentTexture,
+                // 🔴 核心修复：将默认自发光改回黑色（不发光），强度改为0
+                emissive: 0x000000,       
+                emissiveIntensity: 0 
+            }));
             const t = i / photoCount; 
             const y = t * (treeHeight - 1) + 0.5; 
             const radius = baseRadius * (1 - t) + 0.5; 
@@ -357,8 +341,10 @@ update(time, beat, gesture) {
 
     _animateCards(time) {
         const groupRot = this.group.rotation.y;
+        const dissolvingIndices = this.activeDissolves.map(d => d.targetIndex);
+
         this.cards.forEach((card, idx) => {
-            if (idx === this.dissolveTargetIndex) return;
+            if (dissolvingIndices.includes(idx)) return;
             const mesh = card.mesh;
             if (idx === this.highlightedIndex) {
                 const targetDist = 8; 

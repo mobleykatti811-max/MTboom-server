@@ -1,8 +1,5 @@
 import * as THREE from 'three';
-
-// ✅ 引入路径保持不变
 import { TreeWithPhotos } from './Treewithphotos.js';
-
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -14,52 +11,46 @@ export class SceneManager {
     this.height = window.innerHeight;
     this.clock = new THREE.Clock();
     
-    // 🟢 新增引用：用于背景适配和 UI 销毁
     this.bgTexture = null;
     this.sliderContainer = null;
+    this.blessingUI = null;
+    this.dustPoints = null; // 🟢 记录尘埃引用以便销毁
 
-    // 🟢 修正初始化顺序：先设置渲染器和场景
     this._setupRenderer();
     this._setupScene(); 
 
-    // 🟢 最小修改：将 Z 轴从 18 增加到 25，将 Y 轴从 3 降低到 2
-    // Z 越大，树离镜头越远，看起来就越小；降低 Y 是为了配合远距离视角，防止树底悬空
+    // 🟢 视角微调：FOV 设为 60 保持自然透视
     this.camera = new THREE.PerspectiveCamera(60, this.width / this.height, 0.1, 1000);
     this.camera.position.set(0, 2, 22); 
 
     this.tree = new TreeWithPhotos(this.scene);
-    // ... 后续逻辑不变 ...
     this.composer = null;
 
     window.addEventListener('resize', this._onResize.bind(this));
   }
 
-  // SceneManager.js
-// SceneManager.js -> 替换整个 init 函数
-
   async init(giftData = null) {
-    console.log('🎬 SceneManager: init...');
+    console.log('🎬 PhotoTree Scene: 启动资源加载...');
     
-    // 1. 🟢 首先解析数据（拿到真实的 blessing 和 photos）
-    let blessing = null;
-    let photos = null;
+    // 1. 数据解析安全化
+    let blessing = "";
+    let photos = [];
 
     if (giftData && typeof giftData === 'object') {
-      blessing = giftData.blessing;
-      photos = giftData.photos;
+      blessing = giftData.blessing || "";
+      photos = giftData.photos || [];
     } else {
-      blessing = giftData; 
+      blessing = giftData || ""; 
     }
     
-    // 2. 🟢 然后只初始化一次树木
+    // 2. 初始化核心 3D 对象
     await this.tree.init(photos, blessing);
     
-    // 3. 🟢 最后加载环境、后期、滑动条和祝福语 UI
+    // 3. 构建环境与 UI
     this._createEnvironment();
     this._setupPostProcessing();
     this._createDensitySlider();
 
-    // 现在 blessing 已经有值了，UI 就能正常显示了
     if (blessing) {
         this._createBlessingUI(blessing);
     }
@@ -69,33 +60,48 @@ export class SceneManager {
     const time = this.clock.getElapsedTime();
     const beat = Math.max(0, Math.min(1, beatValue || 0));
 
+    // 🟢 让尘埃随时间轻微漂浮
+    if (this.dustPoints) {
+        this.dustPoints.rotation.y = time * 0.05;
+        this.dustPoints.position.y = Math.sin(time * 0.5) * 0.2;
+    }
+
     if (this.tree) {
       this.tree.update(time, beat, gestureData);
     }
 
-    if (this.composer) this.composer.render();
-    else this.renderer.render(this.scene, this.camera);
+    if (this.composer) {
+        this.composer.render();
+    } else {
+        this.renderer.render(this.scene, this.camera);
+    }
   }
 
-  // SceneManager.js -> dispose 方法
   dispose() {
-      console.log("🧹 照片树资源清理中...");
+      console.log("🧹 正在卸载照片树场景...");
       this._removeDensitySlider();
       
-      // 🟢 最小修改：清理祝福语 UI
       if (this.blessingUI) {
           this.blessingUI.remove();
           this.blessingUI = null;
       }
 
+      // 🟢 深度清理灯光与几何体
+      this.scene.traverse((obj) => {
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) {
+              if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+              else obj.material.dispose();
+          }
+      });
+
+      if (this.bgTexture) this.bgTexture.dispose();
       this.renderer.dispose();
       if (this.composer) this.composer.dispose();
+      
       window.removeEventListener('resize', this._onResize.bind(this));
   }
 
-  // =========================
-  // 基础设置 (保持原有逻辑)
-  // =========================
   _setupRenderer() {
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
@@ -107,82 +113,78 @@ export class SceneManager {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x000000, 0); 
     
-    this.renderer.useLegacyLights = false;
-    this.renderer.toneMapping = THREE.ReinhardToneMapping;
-    this.renderer.toneMappingExposure = 1.2; 
+    // 🟢 现代渲染配置
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping; // 更自然的电影感映射
+    this.renderer.toneMappingExposure = 1.0; 
   }
 
   _setupScene() {
     this.scene = new THREE.Scene();
-    // 🟢 暖色雾气，配合室内背景
-    this.scene.fog = new THREE.FogExp2(0x221100, 0.015);
+    this.scene.fog = new THREE.FogExp2(0x0a0a0a, 0.012); // 减淡雾气，保持照片清晰
 
     const loader = new THREE.TextureLoader();
-    // 🟢 物理路径：public\assets\images\TreewithPhotos\GeminiBlue.jpg
     const imagePath = '/assets/images/TreewithPhotos/image.png';
 
     loader.load(imagePath, (tex) => {
         tex.colorSpace = THREE.SRGBColorSpace;
         this.bgTexture = tex; 
         this.scene.background = tex;
-        this.scene.backgroundIntensity = 0.4;
+        this.scene.backgroundIntensity = 0.35; // 稍微压暗背景，突出发光树
 
-        // 🟢 执行背景占满全屏适配
         this._updateBackgroundAspect();
-        console.log("✅ 背景图片适配完成");
     });
   }
 
-  // 🌟 影棚级布光系统 (保持原有逻辑)
   _createEnvironment() {
-    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
-    this.scene.add(ambient);
+    // 基础环境光
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
-    const dirLight = new THREE.DirectionalLight(0xffaa00, 1.0);
-    dirLight.position.set(8, 15, 8);
-    this.scene.add(dirLight);
+    // 侧逆光：勾勒树木轮廓
+    const rimLight = new THREE.DirectionalLight(0xffaa00, 1.2);
+    rimLight.position.set(10, 10, -10);
+    this.scene.add(rimLight);
 
-    const topSpot = new THREE.SpotLight(0xffd700, 8.0); 
-    topSpot.position.set(0, 25, 0); 
-    topSpot.angle = 0.6; 
-    topSpot.penumbra = 0.5; 
-    topSpot.decay = 2;
-    topSpot.distance = 50;
-    topSpot.target.position.set(0, -5, 0); 
+    // 主位舞台灯：向下照射树中心
+    const topSpot = new THREE.SpotLight(0xffd700, 15); 
+    topSpot.position.set(0, 20, 5); 
+    topSpot.angle = 0.5; 
+    topSpot.penumbra = 0.8; 
+    topSpot.decay = 1.5;
+    topSpot.distance = 60;
     this.scene.add(topSpot);
     this.scene.add(topSpot.target);
 
-    const frontLight = new THREE.PointLight(0xffccaa, 2.0, 30);
-    frontLight.position.set(0, 5, 12); 
-    this.scene.add(frontLight);
-
-    // 氛围尘埃
+    // 🟢 氛围尘埃系统优化
     const dustGeo = new THREE.BufferGeometry();
-    const dustCount = 800;
-    const pos = [];
-    for(let i=0; i<dustCount; i++) {
-        pos.push((Math.random()-0.5)*35, (Math.random()-0.5)*35, (Math.random()-0.5)*35);
-    }
-    dustGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    const pos = new Float32Array(800 * 3);
+    for(let i=0; i<800*3; i++) pos[i] = (Math.random()-0.5)*40;
+    dustGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    
     const dustMat = new THREE.PointsMaterial({
-        color: 0xffffff, size: 0.1, transparent: true, opacity: 0.4 
+        color: 0xffd700, 
+        size: 0.08, 
+        transparent: true, 
+        opacity: 0.3,
+        blending: THREE.AdditiveBlending // 让尘埃有发光感
     });
-    this.scene.add(new THREE.Points(dustGeo, dustMat));
+    this.dustPoints = new THREE.Points(dustGeo, dustMat);
+    this.scene.add(this.dustPoints);
   }
 
   _setupPostProcessing() {
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     
+    // 🟢 Bloom 调优：更柔和的梦幻感
     const bloomPass = new UnrealBloomPass(
-        new THREE.Vector2(this.width, this.height), 1.2, 0.5, 0.75 
+        new THREE.Vector2(this.width, this.height), 
+        0.8,  // Strength: 0.8 (原1.2过强)
+        0.4,  // Radius: 0.4
+        0.6   // Threshold: 0.6 (防止背景乱亮)
     );
     this.composer.addPass(bloomPass);
   }
 
-  // =========================
-  // 🟢 密度选择条 UI 逻辑
-  // =========================
   _createDensitySlider() {
     if (document.getElementById('density-slider-container')) return;
 
@@ -198,12 +200,12 @@ export class SceneManager {
     const slider = document.getElementById('density-slider');
     slider.oninput = (e) => {
         const factor = e.target.value / 100;
-        // 🟢 只有照片树 tree 实例有 updateDensity 方法
         if (this.tree && typeof this.tree.updateDensity === 'function') {
             this.tree.updateDensity(factor);
         }
-        // 同步背景条效果 (CSS 配合)
-        slider.style.background = `linear-gradient(to right, #FFD700 0%, #FFD700 ${e.target.value}%, rgba(255,255,255,0.2) ${e.target.value}%, rgba(255,255,255,0.2) 100%)`;
+        // 动态进度条背景
+        const val = e.target.value;
+        slider.style.background = `linear-gradient(to right, #FFD700 ${val}%, rgba(255,255,255,0.1) ${val}%)`;
     };
     slider.dispatchEvent(new Event('input'));
   }
@@ -215,15 +217,13 @@ export class SceneManager {
     }
   }
 
-  // =========================
-  // 背景全屏拉伸逻辑 (引用自木鱼方案)
-  // =========================
   _updateBackgroundAspect() {
       if (!this.bgTexture || !this.bgTexture.image) return;
 
       const canvasAspect = this.width / this.height;
       const imageAspect = this.bgTexture.image.width / this.bgTexture.image.height;
 
+      this.bgTexture.matrixAutoUpdate = false;
       if (canvasAspect > imageAspect) {
           const scale = imageAspect / canvasAspect;
           this.bgTexture.matrix.setUvTransform(0, 0, 1, scale, 0, 0.5, 0.5);
@@ -231,21 +231,17 @@ export class SceneManager {
           const scale = canvasAspect / imageAspect;
           this.bgTexture.matrix.setUvTransform(0, 0, scale, 1, 0, 0.5, 0.5);
       }
-      this.bgTexture.matrixAutoUpdate = false; 
   }
 
-  // SceneManager.js -> 新增方法
-
-_createBlessingUI(text) {
+  _createBlessingUI(text) {
     if (document.getElementById('ar-blessing-display')) return;
     
     const div = document.createElement('div');
     div.id = 'ar-blessing-display';
-    // 使用 span 包裹文字，方便你在 CSS 里设置竖排
     div.innerHTML = `<span>${text}</span>`;
     document.body.appendChild(div);
     this.blessingUI = div;
-}
+  }
 
   _onResize() {
       this.width = window.innerWidth;
@@ -255,7 +251,6 @@ _createBlessingUI(text) {
       this.renderer.setSize(this.width, this.height);
       
       this._updateBackgroundAspect();
-
       if (this.composer) this.composer.setSize(this.width, this.height);
   }
 }

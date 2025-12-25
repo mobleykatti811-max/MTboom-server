@@ -24,6 +24,14 @@ let animationFrameId = null;
 
 // 模块映射
 const SCENE_MODULES = {
+    'SydneyFireworks': {
+        scene: () => import('./logic/SydneyFireworks/SceneManager.js'),
+        tracker: () => import('./logic/SydneyFireworks/HandTracker.js')
+    },
+    'Birthdaycake': { 
+        scene: () => import('./logic/Birthdaycake/SceneManager.js'), 
+        tracker: () => import('./logic/Birthdaycake/HandTracker.js') 
+    },
     'WoodenFish': { scene: () => import('./logic/WoodenFish/SceneManager.js'), tracker: () => import('./logic/WoodenFish/HandTracker.js') },
     'GoldenTree': { scene: () => import('./logic/GoldenTree/SceneManager.js'), tracker: () => import('./logic/GoldenTree/HandTracker.js') },
     'Diamond3D':  { scene: () => import('./logic/Diamond3D/SceneManager.js'),  tracker: () => import('./logic/GoldenTree/HandTracker.js') },
@@ -61,7 +69,40 @@ const PRODUCT_CONFIG = {
         iconEmoji: '🎄', 
         badge: '🎁 送礼', 
         badgeClass: 'premium', 
-        guides: [{ icon: '✊', text: '握拳 → 变小' }, { icon: '🖐️', text: '张开 → 变大' }] 
+        guides: [{ icon: '❤', text: '比心 → 爱的祝福' },{ icon: '✊', text: '握拳 → 变小' }, { icon: '🖐️', text: '张开 → 变大' }] 
+    },
+    SydneyFireworks: {
+        key: 'SydneyFireworks',
+        type: 'FREE',          // 设定为免费或圣诞限免
+        price: 0,
+        title: '🎆 悉尼烟花',
+        btnText: '点亮夜空',
+        iconEmoji: '🎆',
+        badge: '✨ 2026',      // 角标
+        badgeClass: 'hot',     // 样式类名
+        bgm: '/assets/audio/fireworks_vibe.mp3', // 确保路径下有此音频
+        bgStyle: 'radial-gradient(circle, #000033 0%, #000000 100%)', // 深蓝夜色背景
+        guides: [
+            { icon: '👆', text: '伸出 3, 2, 1 倒计时' },
+            { icon: '🖐️', text: '手势触发 → 绚丽绽放' }
+        ]
+    },
+    Birthdaycake: { 
+        key: 'Birthdaycake', 
+        type: 'CUSTOM', 
+        price: 9.9, 
+        title: '🎂 许愿蛋糕', 
+        btnText: '制作祝福', 
+        iconEmoji: '🎂', 
+        badge: '✨ 新品', 
+        badgeClass: 'hot', 
+        // 💡 通用化配置
+        bgm: null, // 初始化时不播放
+        eventAudio: '/assets/audio/HappyBirthday.mp3', // 吹灭时播放的曲目
+        guides: [
+            { icon: '👆', text: '点击屏幕 → 点亮蜡烛' }, 
+            { icon: '🌬️', text: '对着屏幕吹气 → 吹灭也许愿' }
+        ] 
     },
     WoodenFish: { 
         key: 'WoodenFish', 
@@ -250,12 +291,48 @@ async function onUserStart(e, skipModal = false, giftData = null) {
 
         console.log("📦 模块加载完成");
 
+        // main.js 约 220 行左右
         sceneManager = new SceneModule.SceneManager(freshCanvas);
         handTracker = new TrackerModule.HandTracker();
-        
-        // 🟢 最小修改：直接透传 giftData。
-        // 无论它是金树的字符串 "圣诞快乐"，还是照片树的对象 { blessing, photos }
-        sceneManager.init(giftData); 
+
+        // 🟢 就在这里插入你的 onBlowingTrigger 定义
+        const onBlowingTrigger = () => {
+            // 1. UI 弹出逻辑
+            const noteEl = document.getElementById('blessing-note');
+            if (noteEl && giftData && giftData.blessing) {
+                noteEl.querySelector('.note-text').textContent = giftData.blessing;
+                noteEl.style.display = 'block'; 
+                noteEl.classList.add('active'); // 触发 style.css 中的动画
+            }
+
+            // 2. 通用音频播放逻辑
+            const config = PRODUCT_CONFIG[currentProductKey];
+            if (config && config.eventAudio) {
+                // 使用 window.__eventSfx 确保全局可访问以便 backToHome 清理
+                if (!window.__eventSfx) {
+                    window.__eventSfx = new Audio(encodeURI(config.eventAudio));
+                    const isMuted = document.getElementById('audio-btn')?.classList.contains('muted');
+                    window.__eventSfx.muted = isMuted;
+                }
+                window.__eventSfx.play().catch(e => console.warn("事件音频播放失败", e));
+            }
+        };
+
+        // 🔴 注意：修改这里的 init 调用，把函数传进去
+        await sceneManager.init(giftData, onBlowingTrigger);
+
+        // ✅ 新增：如果是蛋糕，确保在场景初始化后，把照片塞进 3D 槽位
+        if (currentProductKey === 'Birthdaycake' && giftData && giftData.photos) {
+            console.log("📸 正在向 3D 蛋糕场景装载照片...");
+            // 给 3D 场景一点点缓冲时间来创建物体
+            setTimeout(() => {
+                giftData.photos.forEach((base64, index) => {
+                    if (sceneManager.product && typeof sceneManager.product.updatePhoto === 'function') {
+                        sceneManager.product.updatePhoto(index, base64);
+                    }
+                });
+            }, 600); // 略微增加延迟确保 3D Group 已加载
+        }
 
         // 切换 UI 状态
         landingPage.style.display = 'none';
@@ -263,6 +340,11 @@ async function onUserStart(e, skipModal = false, giftData = null) {
         document.getElementById('camera-box').style.display = 'block';
 
         updateGuideUI(config);
+
+        // 🔴 核心改动：先运行音频系统，然后运行解锁补丁
+        setupAudioSystem();
+        initMobileAudioUnlock(); // ✨ 调用新封装的函数
+
         setupAudioSystem();
         await handTracker.init();
 
@@ -408,6 +490,12 @@ function tick() {
 // ====================================
 
 function setupAudioSystem() {
+    // 1. 🔴 治本：强制关停首页引流音乐，防止重叠
+    const landingAudio = document.getElementById('bgm-landing');
+    if (landingAudio) {
+        landingAudio.pause();
+        landingAudio.currentTime = 0;
+    }
     // 1. 🟢 进新场景前，先杀掉旧音乐 (解决 BGM 叠加大杂烩的问题)
     stopSceneBgm();
 
@@ -537,6 +625,13 @@ function backToHome() {
         landingAudio.muted = isMuted;
         landingAudio.play().catch(e=>{});
     }
+
+    // 🟢 通用清理：只要有事件音效在响，统统关掉
+    if (window.__eventSfx) {
+        window.__eventSfx.pause();
+        window.__eventSfx.currentTime = 0;
+        window.__eventSfx = null; 
+    }
 }
 
 // ===================================
@@ -561,6 +656,15 @@ function initAudioControl() {
         // 1. 🟢 核心修复：精准控制当前场景的内存音频对象
         if (currentSceneBgm) {
             currentSceneBgm.muted = isMuted;
+        }
+
+        // 🟢 核心修复：同步控制吹灭蜡烛后的“事件音效”
+        // 无论这个变量叫 __eventSfx 还是 __tempCakeSfx，都要管起来
+        if (window.__eventSfx) {
+            window.__eventSfx.muted = isMuted;
+        }
+        if (window.__tempCakeSfx) {
+            window.__tempCakeSfx.muted = isMuted;
         }
 
         // 2. 🟢 精准控制首页引流音乐 (由于 HTML 补全了，现在能找到了)
@@ -726,11 +830,15 @@ function openCustomGiftModal(config, isUnlock = false) {
     if (extraInput) extraInput.style.display = 'block';
     if (blessingInput) blessingInput.style.display = 'block';
     
-    // 🟢 最小修改：根据产品 Key 切换照片上传区的显示
+    // 🟢 逻辑微调：同时支持 PhotoTree 和 Birthdaycake 触发上传区
     if (photoBox) {
-        const isPhotoTree = config.key === 'PhotoTree';
-        photoBox.style.display = isPhotoTree ? 'block' : 'none';
-        if (isPhotoTree) renderPhotoPreviews(); 
+        // 判断当前产品是否需要上传照片功能
+        const isNeedUpload = (config.key === 'PhotoTree' || config.key === 'Birthdaycake');
+        
+        photoBox.style.display = isNeedUpload ? 'block' : 'none';
+        
+        // 如果需要上传，立即渲染已存在的预览图（防止切换产品时丢失视觉状态）
+        if (isNeedUpload) renderPhotoPreviews(); 
     }
 
     if (previewBox) {
@@ -738,17 +846,21 @@ function openCustomGiftModal(config, isUnlock = false) {
         previewBox.innerHTML = `<div style="font-size:70px;">${config.iconEmoji}</div>`;
     }
 
-    // 🟢 最小修改：绑定照片选择事件
+    // 🟢 逻辑微调：绑定照片选择事件 (沿用文件1的 6 张上限和压缩算法)
     if (addBtn && fileInput) {
         addBtn.onclick = () => fileInput.click();
         fileInput.onchange = async (e) => {
-            const files = Array.from(e.target.files).slice(0, 6 - uploadedPhotos.length);
+            // 计算剩余可上传数量，确保总数不超过 6 张
+            const remainingSpace = 6 - uploadedPhotos.length;
+            const files = Array.from(e.target.files).slice(0, remainingSpace);
+            
             for (const file of files) {
-                const compressed = await processImage(file); // 使用压缩函数
+                // 调用文件1底部自带的 processImage 进行 400x500 比例压缩
+                const compressed = await processImage(file); 
                 uploadedPhotos.push(compressed);
             }
             renderPhotoPreviews();
-            fileInput.value = ''; // 清除选择，方便下次触发
+            fileInput.value = ''; // 释放 input，允许重复选择同一张图
         };
     }
 
@@ -793,9 +905,12 @@ function openCustomGiftModal(config, isUnlock = false) {
             confirmBtn.disabled = true;
             confirmBtn.innerText = "⏳ 正在点亮魔法...";
 
+            // 🔥 【核心修复】：在这里定义 giftData，否则后面赋值会报错
+            const giftData = { blessing: blessing };
+            
             // 🟢 最小修改：打包 giftData
-            const giftData = { blessing };
-            if (config.key === 'PhotoTree') {
+            // 🟢 修改判定条件，让蛋糕也能带上照片数据
+            if (config.key === 'PhotoTree' || config.key === 'Birthdaycake') {
                 giftData.photos = uploadedPhotos;
             }
 
@@ -899,6 +1014,7 @@ function recreateCanvas() {
 // ===================================
 // 等待 DOM 加载完毕再执行，最安全
 window.addEventListener('DOMContentLoaded', async () => {
+    if (checkWechatEnvironment()) return; // 如果是微信，直接停止初始化
     initShowcase();
     initAudioControl();
     initPrivacy();
@@ -1058,6 +1174,104 @@ async function processImage(file) {
             };
         };
     });
+}
+
+
+/**
+ * 📱 移动端音频解锁补丁 (防重叠优化版)
+ */
+function initMobileAudioUnlock() {
+    const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+    
+    // 🔴 核心微调：无论 PC 还是手机，触发解锁前先确保首页音乐彻底消失
+    const killLandingBgm = () => {
+        const landingAudio = document.getElementById('bgm-landing');
+        if (landingAudio) {
+            landingAudio.pause();
+            landingAudio.muted = true;
+            landingAudio.currentTime = 0;
+        }
+    };
+
+    if (!isMobile) {
+        killLandingBgm(); // PC 端也清理一次
+        if (currentSceneBgm && currentSceneBgm.paused) {
+            currentSceneBgm.play().catch(() => {});
+        }
+        return;
+    }
+
+    if (document.getElementById('mobile-audio-hint')) return;
+
+    const audioHint = document.createElement('div');
+    audioHint.id = 'mobile-audio-hint';
+    audioHint.style.cssText = `
+        position: fixed; top: 18%; left: 50%; transform: translateX(-50%);
+        color: rgba(255,215,0,0.9); font-size: 13px; z-index: 100000;
+        padding: 10px 20px; background: rgba(0,0,0,0.6); border-radius: 25px;
+        pointer-events: none; border: 1px solid rgba(255,215,0,0.3);
+        white-space: nowrap; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        transition: opacity 0.5s ease;
+    `;
+    audioHint.innerText = "🎵 点击屏幕任意处开启音乐魔法";
+    document.body.appendChild(audioHint);
+
+    const unlockAudio = () => {
+        // 🔴 解锁瞬间再次执行清理，确保万无一失
+        killLandingBgm();
+
+        if (audioContext && audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        if (currentSceneBgm) {
+            currentSceneBgm.play().catch(() => {});
+        }
+        
+        audioHint.style.opacity = '0';
+        setTimeout(() => audioHint.remove(), 1500);
+
+        window.removeEventListener('click', unlockAudio);
+        window.removeEventListener('touchstart', unlockAudio);
+    };
+
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
+}
+
+/**
+ * 🕵️ 微信环境检测
+ * 如果在微信内，显示引导图并拦截后续逻辑
+ */
+function checkWechatEnvironment() {
+    const ua = navigator.userAgent.toLowerCase();
+    const isWechat = /micromessenger/i.test(ua);
+    
+    if (isWechat) {
+        // 创建引导遮罩
+        const wechatMask = document.createElement('div');
+        wechatMask.id = 'wechat-browser-guide';
+        wechatMask.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 200000;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+            padding-top: 50px; color: white; text-align: center;
+        `;
+        wechatMask.innerHTML = `
+            <div style="position: absolute; top: 10px; right: 20px; font-size: 40px;">↗️</div>
+            <div style="margin-top: 40px; padding: 20px;">
+                <h2 style="color: #FFD700;">请使用浏览器打开</h2>
+                <p style="margin-top: 15px; font-size: 14px; opacity: 0.8;">
+                    由于微信限制了摄像头权限<br>
+                    请点击右上角 <b style="color: #fff">三个点</b><br>
+                    选择 <b style="color: #fff">“在浏览器打开”</b> 即可开始
+                </p>
+                <div style="margin-top: 50px; font-size: 60px;">📸</div>
+            </div>
+        `;
+        document.body.appendChild(wechatMask);
+        return true; // 是微信环境
+    }
+    return false; // 不是微信环境
 }
 
 // 删除旧的 window.copyAndClose，因为逻辑已经写在上面了

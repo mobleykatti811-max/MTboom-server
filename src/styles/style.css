@@ -950,3 +950,136 @@ body, html {
         filter: drop-shadow(0 0 15px var(--gold));
     }
 }
+
+/* =========================================
+   📱 手机端 UI 减负补丁 (不影响 PC)
+   ========================================= */
+@media screen and (max-width: 768px) {
+    
+    /* 1. 祝福语缩小与避让：减小体积并靠左，不挡中心照片 */
+    #ar-blessing-display {
+        left: 30px !important;    /* 稍微远离边缘 */
+        top: 75% !important;     /* 从 50% 下移到 65%，避开放大中心 */
+        transform: translateY(-50%) !important; /* 保持垂直居中对齐逻辑 */
+    }
+    #ar-blessing-display span {
+        font-size: 20px !important;  /* 字号缩小 */
+        padding: 10px 15px !important; /* 减小背板厚度 */
+        border-left: 4px solid #FFD700 !important;
+    }
+
+    /* 2. 星光密度滑动条微缩：变窄并上移至声音按钮下方区域 */
+    #density-slider-container {
+        top: 180px !important;     /* 向上挪，避开中间 */
+        left: 80% !important;
+        padding: 8px 15px !important;
+        transform: translateX(-50%) scale(0.85) !important; /* 整体缩放 */
+    }
+    #density-slider {
+        width: 120px !important;   /* 滑动条变短 */
+    }
+    #density-slider::-webkit-slider-thumb {
+        width: 16px !important;    /* 滑块圆点变小 */
+        height: 16px !important;
+    }
+
+    /* 3. 右下角手势提示卡片：整体缩小并紧贴边缘 */
+    #gesture-guide {
+        transform: scale(0.75) !important; /* 缩小至 75% */
+        transform-origin: bottom right !important; /* 锁定右下角缩放 */
+        right: 10px !important;
+        bottom: 15px !important;
+        padding: 12px 18px !important;
+    }
+    #gesture-guide h3 {
+        font-size: 18px !important;
+        margin-bottom: 8px !important;
+    }
+    .guide-item {
+        gap: 8px !important;
+        font-size: 14px !important; /* 文字变小 */
+    }
+
+    #share-prompt-box {
+        width: 60% !important;      /* 左右留出更多空隙 */
+        padding: 15px 12px 12px !important; /* 压缩内边距 */
+        bottom: 15px !important;    /* 稍微下移，更贴合底部 */
+        transform: translateX(-75%) scale(0.9) !important; /* 整体微调缩小 */
+    }
+    #share-prompt-box div:nth-child(2) {
+        font-size: 18px !important; /* 标题字号微调 */
+        margin-bottom: 8px !important;
+    }
+    #share-prompt-box input {
+        padding: 10px !important;    /* 输入框变窄 */
+        font-size: 13px !important;  /* 链接字体变小 */
+        margin-bottom: 0px !important;
+    }
+    #copy-btn {
+         margin-top: 10px !important;
+        padding: 10px !important;   /* 按钮瘦身 */
+        font-size: 18px !important;
+    }
+}
+
+/* =========================================
+   🎵 移动端音频解锁提示样式
+   ========================================= */
+#mobile-audio-hint {
+    /* 增加呼吸感动画，提醒用户点击 */
+    animation: hintPulse 2s infinite ease-in-out;
+    /* 确保文字在所有机型上都不换行 */
+    white-space: nowrap;
+    /* 增加一点毛玻璃感，显得高级 */
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    /* 禁止用户长按选中文本干扰操作 */
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* 呼吸动画：让金色的文字忽明忽暗 */
+@keyframes hintPulse {
+    0% { 
+        opacity: 0.6; 
+        transform: translate(-50%, 0) scale(0.95); 
+    }
+    50% { 
+        opacity: 1; 
+        transform: translate(-50%, -5px) scale(1); 
+    }
+    100% { 
+        opacity: 0.6; 
+        transform: translate(-50%, 0) scale(0.95); 
+    }
+}
+
+/* =========================================
+   🏮 圣诞限免：指定产品高亮（随时可删）
+   ========================================= */
+
+/* 1. 突出这两个卡片的框：红边框 + 红色外发光 */
+.product-card[data-key="PhotoTree"],
+.product-card[data-key="GoldenTree"] {
+    border: 3px solid #ff0000 !important; /* 明显的红框 */
+    background: rgba(255, 255, 255, 0.9) !important; /* 背景变亮，形成反差 */
+    box-shadow: 0 0 25px rgba(255, 0, 0, 0.5) !important; /* 红色呼吸光晕 */
+    transform: scale(1.05); /* 稍微放大，让它在网格中“跳”出来 */
+    z-index: 10;
+}
+
+/* 2. 标题文字标红 */
+.product-card[data-key="PhotoTree"] p,
+.product-card[data-key="GoldenTree"] p {
+    color: #ff0000 !important; /* 纯红字体 */
+    font-size: 16px !important; /* 字体微调大一点 */
+    font-weight: 900 !important;
+    text-shadow: none !important; /* 去掉阴影，保持红字干净 */
+}
+
+/* 3. 角标同步变红 */
+.product-card[data-key="PhotoTree"] .card-badge,
+.product-card[data-key="GoldenTree"] .card-badge {
+    background: #ff0000 !important;
+    color: #fff !important;
+}
